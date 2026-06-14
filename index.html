@@ -298,8 +298,9 @@ body[data-density="compact"] .ctitle{min-height:auto;font-size:13px;}
 <script>
 /* OutlierLab — Shorts research + creator studio (single file, no build).
    Discover/Outliers: live YouTube Data API v3 (your key), real outlier scores.
-   Niche Stats / Channels: aggregate the Shorts you've searched (+ sample data).
-   Script Writer / Voiceover / Scoring: mock/generative, structured for real APIs. */
+   Niche Stats / Channels: aggregate every Short already collected in the app (tracked, current results, saved, channel views).
+   Script Writer: uses patterns from well-performing tracked Shorts.
+   Voiceover: real in-browser speech playback via the Web Speech API, with presets ready for paid TTS APIs later. */
 
 const I = {
   search:'<svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
@@ -639,6 +640,23 @@ function buildSampleCorpus(){
 }
 
 /* Script writer engine */
+function topPerformingShortsForNiche(niche, limit=8){
+  return getAllShortsData()
+    .filter(v=>!niche || v.niche===niche)
+    .sort((a,b)=>((b.outlier_score||0)*0.65 + (b.engagement_rate||0)*0.2 + Math.log10((b.views||1))*6) - ((a.outlier_score||0)*0.65 + (a.engagement_rate||0)*0.2 + Math.log10((a.views||1))*6))
+    .slice(0,limit);
+}
+function getWinningInsights(niche){
+  const winners=topPerformingShortsForNiche(niche,10);
+  if(!winners.length) return {winners:[], avgDuration:30, topHook:null, topFormat:null, avgOutlier:0, avgEngagement:0, titlePattern:"No tracked winners yet", basedOn:"general Shorts best practices"};
+  const avgDuration=Math.round(winners.reduce((a,v)=>a+(v.duration_seconds||30),0)/winners.length);
+  const topHook=mode(winners.map(v=>v.hook_type));
+  const topFormat=mode(winners.map(v=>v.format_type));
+  const avgOutlier=winners.reduce((a,v)=>a+(v.outlier_score||0),0)/winners.length;
+  const avgEngagement=winners.reduce((a,v)=>a+(v.engagement_rate||0),0)/winners.length;
+  const best=winners[0];
+  return {winners, avgDuration, topHook, topFormat, avgOutlier, avgEngagement, titlePattern:best.title, basedOn:NL[niche]?NL[niche]:"tracked Shorts"};
+}
 const HOOK_LINES={
   curiosity_gap:t=>"Here's what nobody tells you about "+t+"\u2026",
   shock:t=>"This is the most insane thing about "+t+" you'll see today.",
@@ -653,23 +671,38 @@ function captionFor(key,o){ if(key==="Hook")return"Big bold text, 1 line, appear
 function pacingForSeg(key,d){ const fast=d<=30; if(key==="Hook")return fast?"Cut on the first word \u2014 no intro":"Land the hook within 2s"; if(key==="Twist")return"Speed up here; quick cut into the reveal"; if(key==="Payoff")return fast?"Tight, one breath":"Slow down slightly to let it land"; if(key==="Cut")return"Hard stop \u2014 loop back to frame one"; return"Steady, 1 cut every 2\u20133s"; }
 function bgFor(niche){ const m={commentary:"Subtle b-roll of the subject + facecam inset",reddit:"Satisfying gameplay (Subway Surfers / Minecraft parkour)",fitness:"Gym demo clips of the exercise",football:"Match highlights / slow-mo of the play",finance:"Clean motion graphics, charts, cash b-roll",motivation:"Cinematic city / nature b-roll, slow zoom",gaming:"The gameplay clip itself, zoomed on the action",ai_voiceover:"Stock space / nature footage matching the fact",podcast:"Speaker clip with captions + progress bar",luxury:"Slow pans of the product / property",memes:"Reaction clips and meme cutaways",educational:"Diagrams + relevant stock footage",subtitles:"Faceless b-roll with bold captions"}; return m[niche]||"Faceless b-roll matching the topic"; }
 function generateMockScript(o){
-  const topic=(o.topic||NL[o.niche]||"this").trim();
+  const insights=getWinningInsights(o.niche);
+  const topic=(o.topic||insights.titlePattern||NL[o.niche]||"this").trim();
+  const winningHook=o.hook || insights.topHook || "curiosity_gap";
+  const winningFormat=o.format || (FORMATS[insights.topFormat]||"commentary").toLowerCase();
   const tmpl=NICHE_TEMPLATES[o.niche]||NICHE_TEMPLATES.commentary;
   const flavor=TONE_FLAVOR[o.tone]||"";
-  const hookText=(HOOK_LINES[o.hook]||HOOK_LINES.curiosity_gap)(topic);
-  const bodies={ Hook:hookText, Context:"Quick context: "+topic+" isn't what it looks like on the surface. "+flavor,
-    Twist:("Then comes the part that flips it \u2014 the detail everyone scrolls past. "+(o.tone==="dramatic"?"And it changes everything.":"")).trim(),
-    Payoff:"So here's what it actually means for you, in plain terms \u2014 the takeaway you can use today.",
-    Cut:o.format==="Reddit-style narration"?"So\u2026 what would you have done? Comment below.":"Follow for part two \u2014 it gets better." };
+  const hookText=(HOOK_LINES[winningHook]||HOOK_LINES.curiosity_gap)(topic);
+  const perfLine=insights.winners.length ? "This structure is modelled on " + insights.winners.length + " tracked " + (NL[o.niche]||"Shorts") + " winners averaging " + oscore(insights.avgOutlier) + " outlier and " + insights.avgEngagement.toFixed(1) + "% engagement." : "This uses a proven Shorts structure: fast 3-second hook, fast context, twist, payoff and a hard re-loop.";
+  const bodies={
+    Hook:hookText,
+    Context:"Quick context: " + topic + " is getting attention because the first obvious answer is usually wrong. " + flavor,
+    Twist:"But the winning Shorts in this niche all do the same thing: they reveal one detail halfway through that changes the whole story.",
+    Payoff:"So the actual takeaway is simple: lead with the strongest claim, remove the slow intro, and make every line push the viewer to the next second.",
+    Cut:o.format==="Reddit-style narration" ? "So be honest… whose side are you on?" : "Save this, because the next example is even better."
+  };
   const sections=tmpl.map(([key,purpose])=>({ key, label:key, purpose, text:bodies[key]||("("+purpose+")"), caption:captionFor(key,o), pacing:pacingForSeg(key,o.duration) }));
   const full=sections.map(s=>s.text).join(" ");
   const words=full.split(/\s+/).filter(Boolean).length;
-  return { options:o, sections, full, wordCount:words, spokenSeconds:Math.round(words/2.5),
-    altHooks:[HOOK_LINES.shock(topic),HOOK_LINES.question(topic),HOOK_LINES.controversy(topic)],
-    altEndings:["Save this so you don't forget it.","Part two drops tomorrow \u2014 follow now.","Tell me I'm wrong in the comments."],
-    titleIdeas:["The truth about "+topic,topic+": what nobody tells you","I tried "+topic+" so you don't have to"],
-    captionStyle:o.format==="Reddit-style narration"?"Word-by-word captions, white with yellow keyword highlight":"Bold centered captions, one line at a time, high contrast",
-    bgFootage:bgFor(o.niche) };
+  const spokenSeconds=Math.max(8,Math.round(words/2.55));
+  const altHooks=(ALT[winningHook]||ALT.curiosity_gap).slice(0,3).map(h=>h.replace(/X/g,topic));
+  return { options:o, sections, full, wordCount:words, spokenSeconds,
+    basedOn:perfLine,
+    winningExample:insights.winners[0] ? insights.winners[0].title : null,
+    captionStyle:(SUB[insights.topFormat] || captionFor("Context",o)),
+    bgFootage:bgFor(o.niche),
+    altHooks,
+    altEndings:["Loop back to the opening claim", "Ask a split-opinion question to drive comments", "End on the strongest unresolved detail"],
+    titleIdeas:["Nobody noticed this about "+topic, "The truth about "+topic, "Why "+topic+" is blowing up"],
+    recommendedDuration:insights.avgDuration,
+    recommendedFormat:FORMATS[insights.topFormat]||winningFormat,
+    recommendedHook:HOOKS[insights.topHook]||HOOKS[winningHook]
+  };
 }
 function generateScriptStructure(script, duration){
   const ratios=[0.07,0.29,0.24,0.33,0.07]; let t=0;
@@ -699,8 +732,40 @@ function scoreScript(script){
   return { hook:Math.round(hook), retention, clarity, viral, improvements };
 }
 function selectVoicePreset(id){ scriptState.voice=id; }
+function getVoiceSettings(preset){
+  const id=preset?.id||"ym_commentary";
+  const base={rate:1.02,pitch:1,volume:1,lang:"en-GB"};
+  if(/energetic|ym_commentary|yf_commentary/.test(id)) return {...base,rate:1.13,pitch:id.includes("f")?1.08:0.96};
+  if(/deep_doc|trailer/.test(id)) return {...base,rate:.88,pitch:.72};
+  if(/calm/.test(id)) return {...base,rate:.92,pitch:id.includes("f")?1.08:.9};
+  if(/female|yf_/.test(id)) return {...base,rate:1.0,pitch:1.12};
+  if(/reddit/.test(id)) return {...base,rate:1.05,pitch:1.0};
+  if(/news/.test(id)) return {...base,rate:1.0,pitch:.92};
+  return base;
+}
+function pickBrowserVoice(preset){
+  const voices=window.speechSynthesis ? speechSynthesis.getVoices() : [];
+  const wantsFemale=/female|yf_|_f/.test(preset.id), wantsMale=/male|ym_|_m|deep|trailer/.test(preset.id);
+  const en=voices.filter(v=>/^en/i.test(v.lang));
+  const pool=en.length?en:voices;
+  const namesFemale=/female|samantha|victoria|zira|susan|hazel|karen|serena|aria|jenny|natasha/i;
+  const namesMale=/male|daniel|david|mark|george|ryan|guy|brian|james/i;
+  return pool.find(v=>wantsFemale&&namesFemale.test(v.name)) || pool.find(v=>wantsMale&&namesMale.test(v.name)) || pool[0] || null;
+}
+function speakText(text,preset){
+  if(!("speechSynthesis" in window)){ toast("Your browser does not support speech playback"); return false; }
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  const settings=getVoiceSettings(preset);
+  Object.assign(u,settings);
+  const voice=pickBrowserVoice(preset);
+  if(voice) u.voice=voice;
+  speechSynthesis.speak(u);
+  return true;
+}
+function stopVoiceover(){ if("speechSynthesis" in window) speechSynthesis.cancel(); }
 function mockGenerateVoiceover(script, voicePreset){
-  return new Promise(res=>setTimeout(()=>res({ ok:true, voiceId:voicePreset.id, voiceName:voicePreset.name, durationSeconds:script?script.spokenSeconds:0, audioUrl:null, generatedAt:Date.now() }),1500));
+  return new Promise(res=>setTimeout(()=>res({ ok:true, voiceId:voicePreset.id, voiceName:voicePreset.name, durationSeconds:script?script.spokenSeconds:0, audioText:script?script.full:"", generatedAt:Date.now(), engine:"browser-speech" }),650));
 }
 
 /* analysis modal content */
@@ -844,7 +909,7 @@ function renderResults(){
   if(!isOut && state.error){ r.innerHTML=stateBlock(I.alert,"Couldn't load Shorts",state.error,'<button class="btn btn-primary" id="retry" style="width:auto;padding:0 18px;height:38px">'+I.redo+' Try again</button>'); $("#retry").onclick=()=>doSearch(state.query||"reddit stories",state.activeNiche); return; }
   let source;
   if(isOut){ source=store.tracked(); if(!source.length){ r.innerHTML=stateBlock(I.flame,"No outliers tracked yet","Run a few searches in Discover \u2014 every Short you pull is collected here and ranked by outlier score. Or load sample data in Settings.",'<button class="btn btn-primary" id="toDisc2" style="width:auto;padding:0 18px;height:38px">'+I.search+' Go to Discover</button>'); $("#toDisc2").onclick=()=>go("discover"); return; } }
-  else { if(!state.hasSearched){ r.innerHTML=stateBlock(I.search,"Search to pull live Shorts","Type a topic above or tap a niche on the left. OutlierLab fetches real Shorts, computes each channel's true average, then ranks by outlier score.",'<div class="chips" style="justify-content:center" id="seeds">'+["reddit stories","fitness","personal finance","gaming clips","motivation"].map(q=>'<button class="chip" data-seed="'+q+'">'+q+'</button>').join("")+'</div>'); r.querySelectorAll("[data-seed]").forEach(b=>b.onclick=()=>doSearch(b.dataset.seed,null)); return; } source=state.results; }
+  else { if(!state.hasSearched){ const local=getAllShortsData().filter(v=>(v.outlier_score||0)>=3 || (v.views||0)>=50000); if(local.length){ source=local; } else { r.innerHTML=stateBlock(I.search,"Search to pull live Shorts","Type a topic above or tap a niche on the left. OutlierLab fetches real Shorts, computes each channel's true average, then ranks by outlier score. Once Shorts are collected, Discover also shows the best performers from all local data without searching again.",'<div class="chips" style="justify-content:center" id="seeds">'+["reddit stories","fitness","personal finance","gaming clips","motivation"].map(q=>'<button class="chip" data-seed="'+q+'">'+q+'</button>').join("")+'</div>'); r.querySelectorAll("[data-seed]").forEach(b=>b.onclick=()=>doSearch(b.dataset.seed,null)); return; } } else source=state.results; }
   const list=sortShorts(filterShorts(source,state.filters), isOut?"outlier":state.sort);
   if(c)c.innerHTML='<b>'+list.length+'</b> Shorts';
   if(!list.length){ r.innerHTML=stateBlock(I.inbox,"No Shorts match these filters","Widen the outlier score, loosen the date range, or clear a filter.",'<button class="clearbtn" id="rf" style="width:auto;padding:0 18px">Reset filters</button>'); $("#rf").onclick=()=>{state.filters={...DEFAULT_FILTERS};renderSidebar("sidebar");renderResults();}; return; }
@@ -889,7 +954,22 @@ function channelsView(){
 }
 function wireChannels(){ const m=$("#main"); m.querySelector("#toDisc")&&(m.querySelector("#toDisc").onclick=()=>go("discover")); m.querySelectorAll("[data-openchan]").forEach(el=>el.onclick=()=>{ const id=el.dataset.openchan; const vids=store.tracked().filter(v=>v.channel.id===id); if(!vids.length)return; openChannel(vids[0].channel,{videos:vids}); }); }
 
-function getCorpus(){ return store.tracked().filter(v=>v.niche); }
+function getAllShortsData(){
+  const all=[];
+  const push=v=>{ if(v && v.id && v.niche) all.push(v); };
+  store.tracked().forEach(push);
+  (state.results||[]).forEach(push);
+  (state.channelShorts||[]).forEach(push);
+  (state.saved||[]).forEach(s=>push(s.video));
+  const seen=new Map();
+  all.forEach(v=>{
+    const key=v.youtube_video_id || v.id;
+    const prev=seen.get(key);
+    if(!prev || (!prev.views && v.views) || ((v.outlier_score||0)>(prev.outlier_score||0))) seen.set(key,v);
+  });
+  return [...seen.values()];
+}
+function getCorpus(){ return getAllShortsData().filter(v=>v.niche); }
 function nicheStatsView(){
   const corpus=getCorpus(); const realCount=corpus.filter(v=>!v.sample).length;
   if(corpus.length<6) return '<div class="mhead"><div><h1>Niche stats</h1><p>See which Shorts niches are performing best right now.</p></div></div>'+stateBlock(I.bars,"Not enough data yet","Niche Stats builds from the Shorts you search \u2014 explore a few niches in Discover and this dashboard fills in. Want to see it fully populated now? Load a sample dataset.",'<div style="display:flex;gap:10px;justify-content:center"><button class="btn btn-primary" id="loadSample" style="width:auto;padding:0 18px;height:38px">'+I.sparkles+' Load sample data</button><button class="btn btn-line" id="toDisc" style="width:auto;padding:0 18px;height:38px">'+I.search+' Go to Discover</button></div>');
@@ -901,8 +981,8 @@ function nicheStatsView(){
   const bar=(items,key,fmtv,max)=>'<div class="barlist">'+items.map(s=>'<div class="barrow"><div class="bn">'+esc(s.label)+'</div><div class="bartrack"><i style="width:'+clamp((s[key]/max)*100,3,100)+'%"></i></div><div class="bv">'+fmtv(s[key])+'</div></div>').join("")+'</div>';
   const topByViews=[...ranked].sort((a,b)=>b.avgViews-a.avgViews).slice(0,8); const maxViews=Math.max(...topByViews.map(s=>s.avgViews));
   const topByOpp=[...ranked].slice(0,8); const maxOpp=Math.max(...topByOpp.map(s=>s.opportunity));
-  const banner=realCount<6?'<div class="warn" style="margin-bottom:18px">'+I.alert+'<span>Showing sample data so you can explore the feature. Search real niches in Discover to replace it. <button id="clearSample" style="color:var(--accent);font-weight:700">Clear sample data</button></span></div>':"";
-  return '<div class="mhead"><div><h1>Niche stats</h1><p>Which Shorts niches are performing best across your tracked data ('+corpus.length+' Shorts).</p></div></div>'+banner+
+  const banner=realCount<6?'<div class="warn" style="margin-bottom:18px">'+I.alert+'<span>Showing sample data so you can explore the feature. Real Discover, Saved and Channel Shorts are automatically included without running new searches. <button id="clearSample" style="color:var(--accent);font-weight:700">Clear sample data</button></span></div>':"";
+  return '<div class="mhead"><div><h1>Niche stats</h1><p>Which Shorts niches are performing best across all Shorts data already inside the app ('+corpus.length+' Shorts).</p></div></div>'+banner+
     '<div class="nsgrid">'+card(I.eye,"Best by avg views",bestViews,fmt(bestViews.avgViews)+" avg views","var(--blue)")+card(I.flame,"Best by outlier score",bestOut,oscore(bestOut.avgOutlier)+" avg outlier","var(--violet)")+card(I.trend,"Fastest growing",bestVel,fmt(bestVel.avgVelocity)+" views/hr","var(--green)")+card(I.heart,"Highest engagement",bestEng,bestEng.avgEngagement.toFixed(1)+"% engagement","var(--pink)")+card(I.target,"Easiest to compete in",easiest,"Small channels, big views","var(--amber)")+'</div>'+
     '<div class="panel"><div class="subhead" style="margin-top:0">'+I.bars+' Average views by niche</div>'+bar(topByViews,"avgViews",fmt,maxViews)+'</div>'+
     '<div class="panel"><div class="subhead" style="margin-top:0">'+I.trophy+' Opportunity score by niche</div>'+bar(topByOpp,"opportunity",v=>Math.round(v),maxOpp)+'</div>'+
@@ -932,12 +1012,12 @@ function scriptView(){
     '<button class="btn btn-primary" id="genBtn" style="height:42px;margin-top:6px">'+I.sparkles+' Generate script</button></div>';
   let output;
   if(!scriptState.result){
-    output='<div class="panel" style="margin:0">'+stateBlock(I.pen,"Build a winning Shorts script","Pick a niche, topic, tone and hook, then generate. You'll get a full script, a timed Hook \u2192 Context \u2192 Twist \u2192 Payoff \u2192 Cut breakdown, AI-style scoring, and a voiceover preset.","")+'</div>';
+    output='<div class="panel" style="margin:0">'+stateBlock(I.pen,"Build a winning Shorts script","Pick a niche, topic, tone and hook, then generate. The script pulls patterns from your best tracked Shorts where possible, then gives a timed Hook → Context → Twist → Payoff → Cut breakdown, scoring, and voiceover playback.","")+'</div>';
   } else {
     const sc=scriptState.result, st=scriptState.structure, score=scriptState.score;
     const sbox=(lab,v)=>{const c=v>=80?"var(--green)":v>=60?"var(--blue)":v>=45?"var(--amber)":"var(--pink)";return '<div class="scorebox"><div class="sl">'+lab+'</div><div class="sv" style="color:'+c+'">'+v+'<span style="font-size:13px;color:var(--text-3)">/100</span></div><div class="ring"><i style="width:'+v+'%;background:'+c+'"></i></div></div>';};
-    output='<div class="panel" style="margin:0 0 22px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap"><div class="subhead" style="margin:0">'+I.pen+' Generated script</div><div class="toolbar"><span class="metachip"><b>'+sc.wordCount+'</b> words</span><span class="metachip">~<b>'+sc.spokenSeconds+'s</b> spoken</span><button class="btn btn-line" id="regen" style="width:auto;padding:0 12px;height:32px;font-size:12px">'+I.redo+' Regenerate</button></div></div>'+
-      '<div class="fullscript">'+esc(sc.full)+'</div>'+
+    output='<div class="panel" style="margin:0 0 22px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap"><div class="subhead" style="margin:0">'+I.pen+' Generated script</div><div class="toolbar"><span class="metachip"><b>'+sc.wordCount+'</b> words</span><span class="metachip">~<b>'+sc.spokenSeconds+'s</b> spoken</span><span class="metachip"><b>Based on:</b> '+esc(sc.winningExample||sc.basedOn)+'</span><button class="btn btn-line" id="regen" style="width:auto;padding:0 12px;height:32px;font-size:12px">'+I.redo+' Regenerate</button></div></div>'+
+      '<div class="fullscript">'+esc(sc.full)+'</div><div class="note" style="border:none;padding:10px 0 0">'+I.sparkles+' <span>'+esc(sc.basedOn)+'</span></div>'+
       '<div class="scorewrap" style="margin-top:16px">'+sbox("Hook strength",score.hook)+sbox("Retention",score.retention)+sbox("Clarity",score.clarity)+sbox("Viral potential",score.viral)+'</div>'+
       '<div class="panel" style="margin:0;background:var(--surface-2)"><div class="sec"><h3>'+I.bolt+' Suggested improvements</h3><ul class="ideas">'+score.improvements.map((x,i)=>'<li><span class="n">'+(i+1)+'</span>'+esc(x)+'</li>').join("")+'</ul></div></div></div>'+
       '<div class="panel" style="margin:0 0 22px"><div class="subhead" style="margin-top:0">'+I.bars+' Structure breakdown</div>'+
@@ -946,7 +1026,7 @@ function scriptView(){
       '<div class="sec" style="margin-top:14px"><h3>'+I.bolt+' 3 alternative hooks</h3><ul class="ideas">'+sc.altHooks.map((x,i)=>'<li><span class="n">'+(i+1)+'</span>'+esc(x)+'</li>').join("")+'</ul></div>'+
       '<div class="sec" style="margin-top:14px"><h3>'+I.redo+' 3 alternative endings</h3><ul class="ideas">'+sc.altEndings.map((x,i)=>'<li><span class="n">'+(i+1)+'</span>'+esc(x)+'</li>').join("")+'</ul></div>'+
       '<div class="sec" style="margin-top:14px"><h3>'+I.hash+' 3 title ideas</h3><ul class="ideas">'+sc.titleIdeas.map((x,i)=>'<li><span class="n">'+String.fromCharCode(65+i)+'</span>'+esc(x)+'</li>').join("")+'</ul></div></div>'+
-      '<div class="panel" style="margin:0"><div class="subhead" style="margin-top:0">'+I.mic+' AI voiceover</div><p style="font-size:12.5px;color:var(--text-3);margin:0 0 14px;line-height:1.5">Pick a voice preset to pair with this script, then generate a preview. (Mock for now \u2014 built to plug into ElevenLabs / OpenAI TTS / PlayHT.)</p>'+
+      '<div class="panel" style="margin:0"><div class="subhead" style="margin-top:0">'+I.mic+' AI voiceover</div><p style="font-size:12.5px;color:var(--text-3);margin:0 0 14px;line-height:1.5">Pick a voice preset to pair with this script, then generate a working browser voiceover preview. It uses your browser speech engine now, and is structured so ElevenLabs / OpenAI TTS / PlayHT can be plugged in later.</p>'+
       '<div class="voicegrid" id="voicegrid">'+presets.map(p=>'<div class="voicecard '+(scriptState.voice===p.id?"on":"")+'" data-voice="'+p.id+'"><div class="vn">'+(scriptState.voice===p.id?I.check:"")+' '+esc(p.name)+'</div><div class="vstyle">'+esc(p.style)+'</div><div class="vdesc">'+esc(p.tone)+'</div><div class="vuse"><b>Best for:</b> '+esc(p.use)+'</div><div class="vbtns"><button class="previewbtn" data-preview="'+p.id+'">'+I.play+' Preview</button></div></div>').join("")+'</div>'+
       '<button class="btn btn-primary" id="genVO" style="height:42px;margin-top:16px;width:auto;padding:0 20px">'+I.mic+' Generate voiceover</button><div id="voOut" style="margin-top:14px"></div></div>';
   }
@@ -960,14 +1040,16 @@ function wireScript(){
   m.querySelector("#genBtn")&&(m.querySelector("#genBtn").onclick=gen);
   m.querySelector("#regen")&&(m.querySelector("#regen").onclick=gen);
   m.querySelectorAll("[data-voice]").forEach(c=>c.onclick=()=>{ selectVoicePreset(c.dataset.voice); renderMain(); });
-  m.querySelectorAll("[data-preview]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const orig=b.innerHTML; b.innerHTML='<span class="bars"><span></span><span></span><span></span><span></span></span> Playing'; setTimeout(()=>{b.innerHTML=orig;},1300); });
+  m.querySelectorAll("[data-preview]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const orig=b.innerHTML; const preset=getVoicePresets().find(p=>p.id===b.dataset.preview); b.innerHTML='<span class="bars"><span></span><span></span><span></span><span></span></span> Playing'; speakText("This is a preview of the " + preset.name + " voice for your YouTube Short.", preset); setTimeout(()=>{b.innerHTML=orig;},1700); });
   const voBtn=m.querySelector("#genVO");
   if(voBtn) voBtn.onclick=async()=>{
     const preset=getVoicePresets().find(p=>p.id===scriptState.voice); const out=$("#voOut"); voBtn.disabled=true; voBtn.style.opacity=".7";
     out.innerHTML='<div class="audioph"><div class="spinner"></div><div style="font-size:13px;color:var(--text-2)">Generating voiceover with <b>'+esc(preset.name)+'</b>\u2026</div></div>';
     const res=await mockGenerateVoiceover(scriptState.result,preset); scriptState.voiceover=res; voBtn.disabled=false; voBtn.style.opacity="1";
-    out.innerHTML='<div class="audioph"><button class="play" title="Preview (mock)">'+I.play+'</button><div class="wave">'+Array.from({length:46}).map(()=>'<i style="height:'+(6+Math.random()*26)+'px"></i>').join("")+'</div><div style="text-align:right;flex:none"><div style="font-size:12.5px;font-weight:700">'+esc(res.voiceName)+'</div><div class="mono" style="font-size:11px;color:var(--text-3)">~'+res.durationSeconds+'s</div></div></div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-line" id="dlVO" style="width:auto;padding:0 14px;height:34px">'+I.dl+' Download (coming soon)</button><button class="btn btn-line" id="reVO" style="width:auto;padding:0 14px;height:34px">'+I.redo+' Regenerate</button></div><div class="note" style="border:none;padding-top:10px">'+I.alert+' Mock audio \u2014 no real TTS call yet. The generate function returns a structured result ready for a real voice API key.</div>';
-    $("#dlVO").onclick=()=>toast("Download lands when a TTS API is connected"); $("#reVO").onclick=()=>voBtn.click();
+    out.innerHTML='<div class="audioph"><button class="play" id="playVO" title="Play voiceover">'+I.play+'</button><div class="wave">'+Array.from({length:46}).map(()=>'<i style="height:'+(6+Math.random()*26)+'px"></i>').join("")+'</div><div style="text-align:right;flex:none"><div style="font-size:12.5px;font-weight:700">'+esc(res.voiceName)+'</div><div class="mono" style="font-size:11px;color:var(--text-3)">~'+res.durationSeconds+'s</div></div></div><div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn btn-primary" id="playVO2" style="width:auto;padding:0 14px;height:34px">'+I.play+' Play voiceover</button><button class="btn btn-line" id="stopVO" style="width:auto;padding:0 14px;height:34px">'+I.x+' Stop</button><button class="btn btn-line" id="dlVO" style="width:auto;padding:0 14px;height:34px">'+I.dl+' Download script .txt</button><button class="btn btn-line" id="reVO" style="width:auto;padding:0 14px;height:34px">'+I.redo+' Regenerate</button></div><div class="note" style="border:none;padding-top:10px">'+I.check+' This is a working in-browser AI-style voiceover preview using the Web Speech API. For exportable studio-quality audio, swap mockGenerateVoiceover() for ElevenLabs / OpenAI TTS / PlayHT.</div>';
+    const play=()=>speakText(res.audioText,preset);
+    $("#playVO").onclick=play; $("#playVO2").onclick=play; $("#stopVO").onclick=stopVoiceover;
+    $("#dlVO").onclick=()=>{ const blob=new Blob([res.audioText],{type:"text/plain"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="shorts-voiceover-script.txt"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }; $("#reVO").onclick=()=>voBtn.click();
   };
 }
 
@@ -1008,7 +1090,7 @@ function setupHTML(){
     '<li><b>Credentials \u2192 Create credentials \u2192 API key</b>, then copy it.</li>'+
     '<li>(Recommended) Restrict it to <b>YouTube Data API v3</b> and add an HTTP-referrer restriction for your domain.</li></ol>'+
     '<div class="keyrow"><input class="inp mono" id="keyInput" type="password" placeholder="Paste your API key (AIza\u2026)"><button class="btn btn-primary" id="saveKey">Connect</button></div>'+
-    '<div class="warn">'+I.alert+'<span>This key lives only in your browser and is sent straight to Google\u2019s API. A static site exposes it to the browser, so restrict it (above). The Script Writer, Niche Stats (sample) and Settings work without a key.</span></div></div>';
+    '<div class="warn">'+I.alert+'<span>This key lives only in your browser and is sent straight to Google\u2019s API. A static site exposes it to the browser, so restrict it (above). The Script Writer, Niche Stats and Settings work without a key; Discover needs the key for live YouTube Shorts.</span></div></div>';
 }
 function wireSetup(){ const m=$("#main"); const inp=m.querySelector("#keyInput");
   m.querySelector("#saveKey").onclick=()=>{ const k=inp.value.trim(); if(!k){inp.focus();return;} store.setKey(k); toast("Key connected"); renderQuota(); renderMain(); };
