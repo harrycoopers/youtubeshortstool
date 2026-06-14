@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OutlierLab — YouTube Shorts research</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
+
+:root{
+  --bg:#F5F6F8; --bg-2:#ECEEF2; --surface:#FFFFFF; --surface-2:#FAFBFC;
+  --border:#E5E8EC; --border-strong:#D5D9DF;
+  --text:#0E1116; --text-2:#586071; --text-3:#8A92A0;
+  --accent:#5A52F0; --accent-soft:rgba(90,82,240,.10);
+  --shadow:0 1px 2px rgba(16,19,28,.04),0 4px 16px rgba(16,19,28,.06);
+  --shadow-lg:0 8px 40px rgba(16,19,28,.14);
+  --ui:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+html[data-theme="dark"]{
+  --bg:#0B0D11; --bg-2:#0F1218; --surface:#14181F; --surface-2:#191E27;
+  --border:#232A35; --border-strong:#303a48;
+  --text:#EDF0F4; --text-2:#9AA3B1; --text-3:#697184;
+  --accent:#7C77FF; --accent-soft:rgba(124,119,255,.16);
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
+  --shadow-lg:0 16px 50px rgba(0,0,0,.55);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--ui);color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;letter-spacing:-.01em;}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:8px;border:2px solid var(--bg);}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+input,select,textarea{font-family:inherit;color:inherit;}
+a{color:inherit;}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;}
+svg{display:block;}
+.ic{width:1em;height:1em;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex:none;}
+
+/* topbar */
+.topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:0 18px;height:60px;
+  background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:saturate(160%) blur(12px);
+  border-bottom:1px solid var(--border);}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px;white-space:nowrap;}
+.logo{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;font-size:16px;
+  background:linear-gradient(135deg,var(--accent),#EC4899);}
+.brand small{display:block;font-weight:500;font-size:10px;color:var(--text-3);letter-spacing:.04em;text-transform:uppercase;margin-top:-2px;}
+.searchbox{flex:1;max-width:480px;display:flex;align-items:center;gap:9px;background:var(--bg-2);border:1px solid var(--border);
+  border-radius:11px;padding:0 12px;height:40px;}
+.searchbox input{flex:1;background:none;border:none;outline:none;font-size:13.5px;}
+.searchbox input::placeholder{color:var(--text-3);}
+.searchbox .go{height:30px;padding:0 13px;border-radius:8px;background:var(--accent);color:#fff;font-size:12.5px;font-weight:700;}
+.nav{display:flex;gap:4px;margin-left:auto;}
+.navbtn{display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:10px;font-size:13px;font-weight:600;color:var(--text-2);transition:.15s;}
+.navbtn:hover{background:var(--bg-2);color:var(--text);}
+.navbtn.active{background:var(--accent-soft);color:var(--accent);}
+.navbtn .b{font-family:var(--mono);font-size:11px;background:var(--accent);color:#fff;border-radius:20px;padding:1px 6px;min-width:18px;text-align:center;}
+.iconbtn{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;color:var(--text-2);border:1px solid var(--border);background:var(--surface);font-size:17px;transition:.15s;}
+.iconbtn:hover{color:var(--text);border-color:var(--border-strong);}
+.quota{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;color:var(--text-3);
+  border:1px solid var(--border);border-radius:9px;padding:5px 9px;height:40px;white-space:nowrap;}
+.quota b{color:var(--text-2);}
+
+.layout{display:flex;align-items:flex-start;}
+.sidebar{width:268px;flex:none;position:sticky;top:60px;height:calc(100vh - 60px);overflow-y:auto;border-right:1px solid var(--border);background:var(--surface);padding:18px 16px 60px;}
+.main{flex:1;min-width:0;padding:22px 26px 80px;}
+
+.fgroup{margin-bottom:20px;}
+.fgroup>h4{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);margin:0 0 10px;display:flex;align-items:center;gap:6px;}
+.chips{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;background:var(--bg-2);color:var(--text-2);border:1px solid transparent;transition:.12s;white-space:nowrap;}
+.chip:hover{color:var(--text);}
+.chip.on{background:var(--accent-soft);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 30%,transparent);}
+.field{margin-bottom:11px;}
+.field label{display:block;font-size:11.5px;font-weight:600;color:var(--text-2);margin-bottom:5px;}
+.row2{display:flex;gap:8px;}
+.inp{width:100%;height:36px;background:var(--bg-2);border:1px solid var(--border);border-radius:9px;padding:0 10px;font-size:13px;outline:none;transition:.12s;}
+.inp:focus{border-color:var(--accent);background:var(--surface);}
+select.inp{cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%238A92A0' stroke-width='2'><path d='M2 4l4 4 4-4'/></svg>");background-repeat:no-repeat;background-position:right 11px center;padding-right:28px;}
+.range{width:100%;accent-color:var(--accent);margin:4px 0 2px;}
+.clearbtn{width:100%;height:36px;border-radius:9px;border:1px solid var(--border);font-size:12.5px;font-weight:600;color:var(--text-2);background:var(--surface);transition:.12s;}
+.clearbtn:hover{border-color:var(--border-strong);color:var(--text);}
+
+.mhead{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:18px;}
+.mhead h1{font-size:23px;font-weight:800;letter-spacing:-.025em;margin:0;}
+.mhead p{margin:3px 0 0;font-size:13px;color:var(--text-2);}
+.toolbar{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;}
+.count{font-family:var(--mono);font-size:13px;color:var(--text-2);}
+.count b{color:var(--text);}
+.seg{display:flex;background:var(--bg-2);border:1px solid var(--border);border-radius:9px;padding:2px;}
+.seg button{width:34px;height:30px;border-radius:7px;display:grid;place-items:center;color:var(--text-3);font-size:15px;}
+.seg button.on{background:var(--surface);color:var(--accent);box-shadow:var(--shadow);}
+
+.obadge{display:inline-flex;align-items:center;gap:5px;border-radius:8px;padding:4px 9px;font-family:var(--mono);font-weight:700;font-size:13px;line-height:1;}
+.obadge .lab{font-family:var(--ui);font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.85;}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(266px,1fr));gap:16px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:15px;overflow:hidden;transition:transform .16s,box-shadow .16s,border-color .16s;display:flex;flex-direction:column;}
+.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:var(--border-strong);}
+.thumb{position:relative;aspect-ratio:16/10;overflow:hidden;background:var(--bg-2);}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.thumb .dur{position:absolute;right:8px;bottom:8px;font-family:var(--mono);font-size:11px;font-weight:600;background:rgba(0,0,0,.66);color:#fff;padding:2px 6px;border-radius:6px;}
+.thumb .ntag{position:absolute;left:8px;top:8px;font-size:10.5px;font-weight:700;background:rgba(0,0,0,.55);color:#fff;padding:3px 8px;border-radius:20px;backdrop-filter:blur(4px);}
+.thumb .ovr{position:absolute;left:8px;bottom:8px;}
+.cbody{padding:12px 13px 13px;display:flex;flex-direction:column;gap:9px;flex:1;}
+.ctitle{font-size:14px;font-weight:600;line-height:1.32;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:37px;}
+.chan{display:flex;align-items:center;gap:7px;cursor:pointer;}
+.avatar{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:700;flex:none;overflow:hidden;}
+.avatar img{width:100%;height:100%;object-fit:cover;}
+.chan .cn{font-size:12px;font-weight:600;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.chan:hover .cn{color:var(--accent);}
+.chan .cs{font-family:var(--mono);font-size:11px;color:var(--text-3);flex:none;}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding-top:8px;border-top:1px solid var(--border);}
+.metric{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:11.5px;color:var(--text-2);}
+.metric .ic{color:var(--text-3);width:13px;height:13px;}
+.cfoot{display:flex;gap:7px;align-items:center;}
+.btn{height:34px;border-radius:9px;font-size:12.5px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;transition:.13s;}
+.btn-primary{background:var(--accent);color:#fff;flex:1;}
+.btn-primary:hover{filter:brightness(1.07);}
+.btn-ghost{background:var(--bg-2);color:var(--text-2);width:40px;flex:none;}
+.btn-ghost:hover{color:var(--text);}
+.btn-ghost.saved{background:var(--accent-soft);color:var(--accent);}
+.tagline{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-3);}
+.fmt{font-size:10.5px;font-weight:600;color:var(--text-2);background:var(--bg-2);padding:2px 7px;border-radius:6px;}
+
+/* list */
+.tablewrap{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--surface);}
+.thead,.trow{display:grid;grid-template-columns:minmax(220px,2.4fr) 1.1fr .9fr .8fr .8fr .9fr 78px;align-items:center;gap:12px;padding:0 16px;}
+.thead{height:42px;background:var(--surface-2);border-bottom:1px solid var(--border);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);}
+.trow{min-height:64px;border-bottom:1px solid var(--border);transition:.12s;}
+.trow:last-child{border-bottom:none;}
+.trow:hover{background:var(--surface-2);}
+.tvid{display:flex;align-items:center;gap:11px;min-width:0;}
+.tthumb{width:58px;height:34px;border-radius:7px;flex:none;object-fit:cover;background:var(--bg-2);}
+.tvid .tt{font-size:13px;font-weight:600;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.tcell{font-family:var(--mono);font-size:12.5px;color:var(--text-2);}
+.tacts{display:flex;gap:6px;justify-content:flex-end;}
+.tact{width:32px;height:32px;border-radius:8px;background:var(--bg-2);display:grid;place-items:center;color:var(--text-2);font-size:15px;transition:.12s;}
+.tact:hover{color:var(--accent);background:var(--accent-soft);}
+
+.state{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 20px;color:var(--text-2);}
+.state .sic{width:60px;height:60px;border-radius:16px;display:grid;place-items:center;background:var(--bg-2);color:var(--text-3);margin-bottom:16px;font-size:26px;}
+.state h3{font-size:17px;font-weight:700;color:var(--text);margin:0 0 6px;}
+.state p{font-size:13.5px;max-width:420px;margin:0 0 18px;line-height:1.55;}
+.skel{background:var(--surface);border:1px solid var(--border);border-radius:15px;overflow:hidden;}
+.sk{background:linear-gradient(90deg,var(--bg-2) 25%,var(--surface-2) 37%,var(--bg-2) 63%);background-size:400% 100%;animation:sh 1.3s ease infinite;}
+@keyframes sh{0%{background-position:100% 0}100%{background-position:0 0}}
+.spinner{width:16px;height:16px;border:2px solid var(--border-strong);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* modal */
+.scrim{position:fixed;inset:0;z-index:60;background:rgba(8,10,14,.55);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding:36px 18px;overflow-y:auto;}
+.modal{width:100%;max-width:760px;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-lg);overflow:hidden;animation:pop .2s cubic-bezier(.2,.8,.3,1);}
+@keyframes pop{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+.mtop{display:flex;gap:14px;padding:18px 20px;border-bottom:1px solid var(--border);position:relative;}
+.mtop img{width:104px;height:62px;border-radius:11px;flex:none;object-fit:cover;background:var(--bg-2);}
+.mtop h2{font-size:16px;font-weight:700;margin:0 0 7px;line-height:1.3;padding-right:30px;}
+.mclose{position:absolute;right:14px;top:14px;width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--text-3);background:var(--bg-2);font-size:16px;}
+.mclose:hover{color:var(--text);}
+.mbody{padding:20px;display:flex;flex-direction:column;gap:18px;}
+.aihdr{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;}
+.detgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
+.det{background:var(--surface-2);border:1px solid var(--border);border-radius:11px;padding:11px 13px;}
+.det .k{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);margin-bottom:4px;}
+.det .v{font-size:13.5px;font-weight:600;}
+.sec h3{font-size:13px;font-weight:700;margin:0 0 8px;display:flex;align-items:center;gap:7px;}
+.sec p{font-size:13.5px;line-height:1.6;color:var(--text-2);margin:0;}
+.ideas{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none;}
+.ideas li{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
+.ideas li .n{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:6px;padding:3px 7px;flex:none;margin-top:1px;}
+.note{font-size:11.5px;color:var(--text-3);display:flex;gap:7px;align-items:flex-start;line-height:1.5;border-top:1px solid var(--border);padding-top:14px;}
+
+/* saved */
+.savedlist{display:flex;flex-direction:column;gap:14px;}
+.scard{display:flex;gap:16px;background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:14px;}
+.scard img.sth{width:150px;aspect-ratio:16/10;border-radius:11px;flex:none;object-fit:cover;background:var(--bg-2);}
+.scard .sm{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;}
+.scard h3{font-size:15px;font-weight:700;margin:0;line-height:1.3;}
+.scard .meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-family:var(--mono);font-size:11.5px;color:var(--text-3);}
+.scard textarea{width:100%;min-height:54px;resize:vertical;background:var(--bg-2);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:12.5px;outline:none;line-height:1.5;}
+.scard textarea:focus{border-color:var(--accent);background:var(--surface);}
+.summary{font-size:12.5px;color:var(--text-2);line-height:1.55;background:var(--surface-2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:9px 12px;}
+.lnk{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--accent);font-family:var(--mono);text-decoration:none;}
+
+/* channel */
+.chero{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:22px;margin-bottom:22px;}
+.chero .top{display:flex;gap:16px;align-items:center;}
+.chero .big{width:64px;height:64px;border-radius:18px;object-fit:cover;flex:none;background:var(--bg-2);}
+.chero h1{font-size:22px;font-weight:800;margin:0;letter-spacing:-.02em;}
+.statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:20px;}
+.stat{background:var(--surface-2);border:1px solid var(--border);border-radius:13px;padding:13px 15px;}
+.stat .sl{font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;display:flex;gap:6px;align-items:center;}
+.stat .sv{font-family:var(--mono);font-size:21px;font-weight:700;margin-top:5px;}
+.subhead{font-size:15px;font-weight:700;margin:26px 0 14px;display:flex;align-items:center;gap:8px;}
+.backbtn{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--text-2);padding:7px 12px;border-radius:9px;background:var(--bg-2);margin-bottom:16px;}
+.backbtn:hover{color:var(--text);}
+
+/* setup / key */
+.setup{max-width:560px;margin:48px auto;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:30px;box-shadow:var(--shadow);}
+.setup h2{font-size:20px;font-weight:800;margin:0 0 6px;}
+.setup p{font-size:13.5px;color:var(--text-2);line-height:1.6;margin:0 0 16px;}
+.setup ol{font-size:13px;color:var(--text-2);line-height:1.7;margin:0 0 18px;padding-left:20px;}
+.setup ol a{color:var(--accent);font-weight:600;}
+.setup .keyrow{display:flex;gap:8px;}
+.setup .keyrow .inp{height:42px;}
+.setup .keyrow .btn{height:42px;padding:0 18px;}
+.warn{font-size:12px;color:var(--text-3);background:var(--bg-2);border-radius:10px;padding:11px 13px;line-height:1.55;margin-top:14px;display:flex;gap:9px;}
+
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:80;display:flex;align-items:center;gap:9px;background:var(--text);color:var(--bg);font-size:13px;font-weight:600;padding:11px 16px;border-radius:11px;box-shadow:var(--shadow-lg);animation:pop .2s ease;}
+
+@media (max-width:880px){
+  .sidebar{display:none;} .main{padding:18px 16px 80px;}
+  .nav .navbtn span{display:none;} .searchbox{max-width:none;} .quota{display:none;}
+  .thead{display:none;} .trow{grid-template-columns:1fr auto;row-gap:6px;padding:12px 14px;}
+  .scard{flex-direction:column;} .scard img.sth{width:100%;}
+  .mobileFilters{display:flex !important;}
+  .drawer .pane{position:fixed;left:0;top:0;bottom:0;width:284px;z-index:55;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:18px 16px 60px;}
+  .drawer .bd{position:fixed;inset:0;z-index:54;background:rgba(0,0,0,.45);}
+}
+.mobileFilters{display:none;}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="overlay"></div>
+
+<script>
+/* ============================================================================
+   OutlierLab — real YouTube Shorts research tool (single file, no build).
+   Calls the YouTube Data API v3 with YOUR key. Computes real outlier scores.
+   ----------------------------------------------------------------------------
+   Outlier score = video views / channel's average Shorts views.
+   Channel average is sampled from the channel's recent uploads (Shorts only)
+   and cached for 24h to protect your daily quota.
+============================================================================ */
+
+/* ---------- tiny SVG icons (no dependencies) ---------- */
+const I = {
+  search:'<svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
+  flame:'<svg class="ic" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>',
+  eye:'<svg class="ic" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+  heart:'<svg class="ic" viewBox="0 0 24 24"><path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 12 5 5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7Z"/></svg>',
+  comment:'<svg class="ic" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-9 8.4 8.5 8.5 0 0 1-3.6-.8L3 21l1.9-5.4A8.5 8.5 0 1 1 21 11.5z"/></svg>',
+  clock:'<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  cal:'<svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  users:'<svg class="ic" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>',
+  sparkles:'<svg class="ic" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>',
+  trend:'<svg class="ic" viewBox="0 0 24 24"><path d="M22 7l-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></svg>',
+  grid:'<svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+  list:'<svg class="ic" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+  bookmark:'<svg class="ic" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
+  bookmarkOn:'<svg class="ic" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
+  sun:'<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  moon:'<svg class="ic" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>',
+  x:'<svg class="ic" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  trash:'<svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>',
+  ext:'<svg class="ic" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>',
+  back:'<svg class="ic" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>',
+  sliders:'<svg class="ic" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>',
+  bolt:'<svg class="ic" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg>',
+  gauge:'<svg class="ic" viewBox="0 0 24 24"><path d="M12 14l4-4M3.5 18a9 9 0 1 1 17 0z"/></svg>',
+  hash:'<svg class="ic" viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>',
+  bars:'<svg class="ic" viewBox="0 0 24 24"><path d="M3 3v18h18M8 17V9M13 17V5M18 17v-6"/></svg>',
+  inbox:'<svg class="ic" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.5A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.5z"/></svg>',
+  alert:'<svg class="ic" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
+  redo:'<svg class="ic" viewBox="0 0 24 24"><path d="M23 4v6h-6M20.5 15a9 9 0 1 1-2.1-9.4L23 10"/></svg>',
+  check:'<svg class="ic" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>',
+  key:'<svg class="ic" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.5 12.5 8-8M16 6l3 3M19 3l2 2"/></svg>',
+};
+
+/* ============================================================================
+   CONFIG
+============================================================================ */
+const NICHES = [
+  { id:"commentary", label:"Commentary", q:"commentary" },
+  { id:"reddit", label:"Reddit Stories", q:"reddit stories" },
+  { id:"subtitles", label:"Subtitles / Captions", q:"subtitle story" },
+  { id:"fitness", label:"Fitness", q:"fitness" },
+  { id:"football", label:"Football", q:"football skills" },
+  { id:"finance", label:"Finance", q:"personal finance" },
+  { id:"motivation", label:"Motivation", q:"motivation" },
+  { id:"gaming", label:"Gaming", q:"gaming clips" },
+  { id:"ai_voiceover", label:"AI Voiceover", q:"ai voiceover facts" },
+  { id:"podcast", label:"Podcast Clips", q:"podcast clips" },
+  { id:"luxury", label:"Luxury", q:"luxury lifestyle" },
+  { id:"memes", label:"Memes", q:"funny meme" },
+  { id:"educational", label:"Educational Facts", q:"interesting facts" },
+];
+const NL = Object.fromEntries(NICHES.map(n=>[n.id,n.label]));
+const FORMATS = { facecam:"Facecam", no_facecam:"No facecam", ai_voice:"AI voice", human_voice:"Human voice", gameplay_bg:"Gameplay background", podcast_clip:"Podcast clip", text_on_screen:"Text on screen", subtitles:"Subtitles / captions", reaction:"Reaction video" };
+const HOOKS = { curiosity_gap:"Curiosity gap", shock:"Shock hook", question:"Question hook", controversy:"Controversy hook", story:"Story hook", problem:"Mistake / problem hook", transformation:"Transformation hook" };
+const TIERS = [
+  { key:"normal", label:"Normal", min:0, color:"#8A92A0" },
+  { key:"good", label:"Good performer", min:2, color:"#10B981" },
+  { key:"high", label:"High performer", min:5, color:"#3B82F6" },
+  { key:"outlier", label:"Outlier", min:10, color:"#8B5CF6", flame:true },
+  { key:"mega", label:"Mega outlier", min:25, color:"#F59E0B", flame:true },
+  { key:"insane", label:"Insane outlier", min:50, color:"#F43F5E", flame:true },
+];
+const SORTS = [
+  { id:"outlier", label:"Biggest outlier score" },
+  { id:"views", label:"Highest views" },
+  { id:"newest", label:"Newest" },
+  { id:"velocity", label:"Fastest growing (views/hr)" },
+  { id:"engagement", label:"Highest engagement" },
+  { id:"hidden", label:"Hidden gems (low subs, high views)" },
+];
+const DEFAULT_FILTERS = { minViews:"", maxViews:"", minSubs:"", maxSubs:"", minOutlier:0, minEngagement:0, duration:"any", posted:"any" };
+
+/* ============================================================================
+   CORE LOGIC — the helper functions
+============================================================================ */
+const calculateOutlierScore  = (views, avg) => (!avg||avg<=0) ? 0 : views/avg;
+const calculateEngagementRate = (likes, comments, views) => (!views||views<=0)?0:((likes+comments)/views)*100;
+const calculateViewVelocity   = (cur, prev, hrs) => (!hrs||hrs<=0)?0:Math.max(0,(cur-prev)/hrs);
+function classifyOutlierScore(s){ let t=TIERS[0]; for(const x of TIERS) if(s>=x.min) t=x; return t; }
+function filterShorts(vids, f){
+  const now=Date.now();
+  const win={any:Infinity,"24h":864e5,"7d":6048e5,"30d":2592e6,"90d":7776e6}[f.posted];
+  return vids.filter(v=>{
+    if(f.minViews && v.views < +f.minViews) return false;
+    if(f.maxViews && v.views > +f.maxViews) return false;
+    if(f.minSubs && v.channel.subscriber_count < +f.minSubs) return false;
+    if(f.maxSubs && v.channel.subscriber_count > +f.maxSubs) return false;
+    if((v.outlier_score||0) < f.minOutlier) return false;
+    if(v.engagement_rate < f.minEngagement) return false;
+    if(f.duration!=="any"){const d=v.duration_seconds;
+      if(f.duration==="u15"&&d>=15)return false;
+      if(f.duration==="15_30"&&(d<15||d>30))return false;
+      if(f.duration==="30_60"&&(d<30||d>60))return false;
+      if(f.duration==="o60"&&d<=60)return false;}
+    if(now - v.published_at > win) return false;
+    return true;
+  });
+}
+function sortShorts(vids, s){
+  const a=[...vids];
+  switch(s){
+    case "views": return a.sort((x,y)=>y.views-x.views);
+    case "newest": return a.sort((x,y)=>y.published_at-x.published_at);
+    case "outlier": return a.sort((x,y)=>(y.outlier_score||0)-(x.outlier_score||0));
+    case "velocity": return a.sort((x,y)=>y.view_velocity-x.view_velocity);
+    case "engagement": return a.sort((x,y)=>y.engagement_rate-x.engagement_rate);
+    case "hidden": return a.sort((x,y)=>(y.views/Math.max(1,y.channel.subscriber_count))-(x.views/Math.max(1,x.channel.subscriber_count)));
+    default: return a;
+  }
+}
+
+/* ---------- formatting ---------- */
+const fmt=(n)=>{n=+n||0;if(n>=1e9)return(n/1e9).toFixed(n>=1e10?0:1).replace(/\.0$/,"")+"B";if(n>=1e6)return(n/1e6).toFixed(n>=1e7?0:1).replace(/\.0$/,"")+"M";if(n>=1e3)return(n/1e3).toFixed(n>=1e4?0:1).replace(/\.0$/,"")+"K";return""+Math.round(n);};
+const durStr=(s)=>`${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,"0")}`;
+const ago=(ts)=>{const d=Math.floor((Date.now()-ts)/6e4);if(d<60)return d+"m ago";if(d<1440)return Math.floor(d/60)+"h ago";const dd=Math.floor(d/1440);if(dd<30)return dd+"d ago";return Math.floor(dd/30)+"mo ago";};
+const oscore=(s)=>s==null?"…":((s>=10?Math.round(s):s.toFixed(1))+"×");
+const esc=(s)=>(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+function parseISODur(iso){const m=/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(iso||"");if(!m)return 0;return (+m[1]||0)*3600+(+m[2]||0)*60+(+m[3]||0);}
+
+/* ============================================================================
+   YOUTUBE DATA API LAYER  (runs in the browser with the user's key)
+============================================================================ */
+const YT = "https://www.googleapis.com/youtube/v3";
+const SHORT_MAX_SECONDS = 180; // Shorts can be up to 3 min since Oct 2024
+const SAMPLE_PER_CHANNEL = 18; // recent uploads sampled to estimate Shorts avg
+
+const store = {
+  getKey:()=>localStorage.getItem("yt_key")||"",
+  setKey:(k)=>localStorage.setItem("yt_key",k.trim()),
+  delKey:()=>localStorage.removeItem("yt_key"),
+  saved:()=>{try{return JSON.parse(localStorage.getItem("yt_saved")||"[]")}catch{return[]}},
+  setSaved:(s)=>localStorage.setItem("yt_saved",JSON.stringify(s)),
+  chanCache:()=>{try{return JSON.parse(localStorage.getItem("yt_chan")||"{}")}catch{return{}}},
+  setChanCache:(c)=>{try{localStorage.setItem("yt_chan",JSON.stringify(c))}catch{}},
+  quota:()=>{const d=new Date().toDateString();let q;try{q=JSON.parse(localStorage.getItem("yt_quota")||"{}")}catch{q={}}return q.date===d?(q.units||0):0;},
+  addQuota:(u)=>{const d=new Date().toDateString();let q;try{q=JSON.parse(localStorage.getItem("yt_quota")||"{}")}catch{q={}}if(q.date!==d){q={date:d,units:0};}q.units=(q.units||0)+u;localStorage.setItem("yt_quota",JSON.stringify(q));renderQuota();},
+};
+
+async function ytFetch(path, params, cost){
+  const key = store.getKey();
+  const url = new URL(YT+path);
+  Object.entries(params).forEach(([k,v])=>{ if(v!==undefined&&v!==null&&v!=="") url.searchParams.set(k,v); });
+  url.searchParams.set("key", key);
+  store.addQuota(cost);
+  const res = await fetch(url.toString());
+  const data = await res.json();
+  if(!res.ok){
+    const reason = data?.error?.errors?.[0]?.reason || data?.error?.status || ("HTTP "+res.status);
+    const msg = data?.error?.message || "Request failed";
+    const e = new Error(msg); e.reason = reason; throw e;
+  }
+  return data;
+}
+
+// chunk helper
+const chunk=(arr,n)=>{const o=[];for(let i=0;i<arr.length;i+=n)o.push(arr.slice(i,i+n));return o;};
+// simple concurrency pool
+async function pool(items, n, worker){
+  const out=[]; let i=0;
+  const run=async()=>{ while(i<items.length){const idx=i++; out[idx]=await worker(items[idx],idx).catch(()=>null);} };
+  await Promise.all(Array.from({length:Math.min(n,items.length)},run));
+  return out;
+}
+
+// 1) search Shorts by query -> 2) enrich -> 3) channels -> 4) channel Shorts average
+async function searchShorts(query, sort, posted){
+  const order = sort==="views"?"viewCount" : sort==="newest"?"date" : "relevance";
+  let publishedAfter;
+  if(posted!=="any"){ const win={"24h":864e5,"7d":6048e5,"30d":2592e6,"90d":7776e6}[posted]; publishedAfter=new Date(Date.now()-win).toISOString(); }
+
+  setStatus("Searching live Shorts…");
+  const s = await ytFetch("/search", { part:"snippet", type:"video", videoDuration:"short", maxResults:50, q:query, order, publishedAfter, regionCode:undefined }, 100);
+  const ids = (s.items||[]).map(it=>it.id.videoId).filter(Boolean);
+  if(!ids.length) return [];
+
+  setStatus("Loading video stats…");
+  let videos=[];
+  for(const grp of chunk(ids,50)){
+    const v = await ytFetch("/videos", { part:"snippet,statistics,contentDetails", id:grp.join(","), maxResults:50 }, 1);
+    videos = videos.concat(v.items||[]);
+  }
+  // keep only true Shorts (duration <= 3 min)
+  videos = videos.filter(v=>parseISODur(v.contentDetails.duration) <= SHORT_MAX_SECONDS);
+
+  // channels
+  const chanIds = [...new Set(videos.map(v=>v.snippet.channelId))];
+  const chanMap = {};
+  for(const grp of chunk(chanIds,50)){
+    const c = await ytFetch("/channels", { part:"snippet,statistics,contentDetails", id:grp.join(","), maxResults:50 }, 1);
+    (c.items||[]).forEach(ch=>chanMap[ch.id]=ch);
+  }
+
+  // channel Shorts averages (cached 24h), computed with limited concurrency
+  setStatus("Computing channel baselines (this is the outlier math)…");
+  const cache = store.chanCache(); const day=864e5;
+  const need = chanIds.filter(id=>{ const c=cache[id]; return !(c && (Date.now()-c.ts)<day && c.avg); });
+  await pool(need, 5, async(id)=>{
+    const ch = chanMap[id]; if(!ch) return;
+    const avg = await channelShortsAverage(ch);
+    cache[id] = { avg, ts:Date.now() };
+  });
+  store.setChanCache(cache);
+
+  // assemble
+  const out = videos.map(v=>{
+    const ch = chanMap[v.snippet.channelId] || {};
+    const stats = ch.statistics||{};
+    const subs = +stats.subscriberCount || 0;
+    const cached = cache[v.snippet.channelId];
+    let avg = cached?.avg || 0;
+    if(!avg){ const vc=+stats.viewCount||0, vn=+stats.videoCount||0; avg = vn? vc/vn : 0; } // fallback
+    const views=+v.statistics.viewCount||0, likes=+(v.statistics.likeCount||0), comments=+(v.statistics.commentCount||0);
+    const dsec=parseISODur(v.contentDetails.duration);
+    const published_at=new Date(v.snippet.publishedAt).getTime();
+    const hrs=Math.max(1,(Date.now()-published_at)/36e5);
+    const niche = state.activeNiche || null;
+    return {
+      id:v.id, youtube_video_id:v.id, title:v.snippet.title,
+      description:v.snippet.description||"",
+      thumbnail_url:(v.snippet.thumbnails.medium||v.snippet.thumbnails.default||{}).url,
+      video_url:"https://www.youtube.com/shorts/"+v.id,
+      views, likes, comments, duration_seconds:dsec, published_at,
+      niche, niche_label: niche?NL[niche]:query,
+      format_type: estimateFormat(v.snippet.title, v.snippet.description),
+      hook_type: estimateHook(v.snippet.title),
+      outlier_score: avg? calculateOutlierScore(views,avg) : null,
+      channel_avg: avg,
+      engagement_rate: calculateEngagementRate(likes,comments,views),
+      view_velocity: views/hrs,
+      channel:{
+        id:v.snippet.channelId, youtube_channel_id:v.snippet.channelId,
+        name:(ch.snippet||{}).title||v.snippet.channelTitle,
+        avatar:(ch.snippet&&ch.snippet.thumbnails&&(ch.snippet.thumbnails.default||{}).url)||null,
+        subscriber_count:subs, average_shorts_views:avg,
+        uploads:(ch.contentDetails&&ch.contentDetails.relatedPlaylists&&ch.contentDetails.relatedPlaylists.uploads)||null,
+      },
+    };
+  });
+  return out;
+}
+
+async function channelShortsAverage(ch){
+  const uploads = ch.contentDetails?.relatedPlaylists?.uploads;
+  if(!uploads){ const vc=+ch.statistics?.viewCount||0,vn=+ch.statistics?.videoCount||0; return vn?vc/vn:0; }
+  try{
+    const pl = await ytFetch("/playlistItems", { part:"contentDetails", playlistId:uploads, maxResults:50 }, 1);
+    const vids=(pl.items||[]).map(it=>it.contentDetails.videoId).slice(0,SAMPLE_PER_CHANNEL);
+    if(!vids.length) return 0;
+    let items=[];
+    for(const grp of chunk(vids,50)){
+      const v=await ytFetch("/videos", { part:"statistics,contentDetails", id:grp.join(","), maxResults:50 }, 1);
+      items=items.concat(v.items||[]);
+    }
+    const shorts=items.filter(v=>parseISODur(v.contentDetails.duration)<=SHORT_MAX_SECONDS);
+    const pool=shorts.length?shorts:items;
+    if(!pool.length) return 0;
+    const total=pool.reduce((a,v)=>a+(+v.statistics.viewCount||0),0);
+    return total/pool.length;
+  }catch{ const vc=+ch.statistics?.viewCount||0,vn=+ch.statistics?.videoCount||0; return vn?vc/vn:0; }
+}
+
+// fetch a channel's recent Shorts on demand (for channel page)
+async function fetchChannelShorts(channel){
+  if(!channel.uploads) return [];
+  const pl = await ytFetch("/playlistItems",{ part:"contentDetails", playlistId:channel.uploads, maxResults:50 },1);
+  const vids=(pl.items||[]).map(it=>it.contentDetails.videoId);
+  let items=[];
+  for(const grp of chunk(vids,50)){
+    const v=await ytFetch("/videos",{ part:"snippet,statistics,contentDetails", id:grp.join(","), maxResults:50 },1);
+    items=items.concat(v.items||[]);
+  }
+  const avg=channel.average_shorts_views||0;
+  return items.filter(v=>parseISODur(v.contentDetails.duration)<=SHORT_MAX_SECONDS).map(v=>{
+    const views=+v.statistics.viewCount||0,likes=+(v.statistics.likeCount||0),comments=+(v.statistics.commentCount||0);
+    const published_at=new Date(v.snippet.publishedAt).getTime();
+    return { id:v.id, youtube_video_id:v.id, title:v.snippet.title, description:v.snippet.description||"",
+      thumbnail_url:(v.snippet.thumbnails.medium||v.snippet.thumbnails.default||{}).url, video_url:"https://www.youtube.com/shorts/"+v.id,
+      views, likes, comments, duration_seconds:parseISODur(v.contentDetails.duration), published_at,
+      niche:state.activeNiche, niche_label:channel.name,
+      format_type:estimateFormat(v.snippet.title,v.snippet.description), hook_type:estimateHook(v.snippet.title),
+      outlier_score: avg?calculateOutlierScore(views,avg):null, channel_avg:avg,
+      engagement_rate:calculateEngagementRate(likes,comments,views), view_velocity:views/Math.max(1,(Date.now()-published_at)/36e5),
+      channel };
+  });
+}
+
+/* ---------- light heuristics for format / hook (API can't tell us) ---------- */
+function estimateFormat(title, desc){
+  const t=((title||"")+" "+(desc||"")).toLowerCase();
+  if(/\b(ai|text to speech|tts|robot voice)\b/.test(t)) return "ai_voice";
+  if(/\b(reddit|aita|r\/)\b/.test(t)) return "text_on_screen";
+  if(/\b(gameplay|fortnite|minecraft|warzone|valorant|clip)\b/.test(t)) return "gameplay_bg";
+  if(/\b(podcast|ep\.?\s?\d|episode|interview)\b/.test(t)) return "podcast_clip";
+  if(/\b(react|reaction)\b/.test(t)) return "reaction";
+  return "no_facecam";
+}
+function estimateHook(title){
+  const t=(title||"").toLowerCase();
+  if(/\?/.test(t)) return "question";
+  if(/^(why|how)\b/.test(t)) return "curiosity_gap";
+  if(/\b(stop|mistake|wrong|don'?t|never do)\b/.test(t)) return "problem";
+  if(/\b(shocking|insane|crazy|unbelievable|no one|nobody)\b/.test(t)) return "shock";
+  if(/\b(story|aita|i |my |he |she )/.test(t)) return "story";
+  if(/\b(before|after|transform|results|days)\b/.test(t)) return "transformation";
+  return "curiosity_gap";
+}
+
+/* ============================================================================
+   HEURISTIC "AI" ANALYSIS  (based on the real title + real metrics)
+============================================================================ */
+const WHY={curiosity_gap:"The first frame withholds the key detail, forcing viewers to keep watching to close the loop — and opening-second retention is the strongest input the Shorts algorithm has.",shock:"It opens on a pattern-breaking claim or visual that stops the scroll. Shock leads spike early retention, which is what pushes a Short past the channel's own audience.",question:"It poses a question the viewer answers in their head, opening a loop that holds them to the payoff and nudges a comment.",controversy:"It stakes out a divisive position fast, driving comments and re-watches — both heavily rewarded in the feed.",story:"It drops the viewer mid-story with stakes already set, so they stay for the resolution. Narrative tension carries average view duration.",problem:"It names a problem the viewer recognises in themselves, then promises the fix, holding them to the resolution.",transformation:"It teases the before/after up front, so people stay for the payoff — reliably driving completion and re-watch rate."};
+const SUB={text_on_screen:"Large bold on-screen text, one line at a time, high contrast — readable with sound off.",subtitles:"Word-by-word animated captions, centred, with a keyword highlight on the emphasis word.",ai_voice:"Synthetic narration with burned-in captions; tight, even pacing, no dead air.",human_voice:"Spoken delivery with light captions; emphasis carried by tone.",facecam:"Minimal captions — the face does the work; one keyword pinned top-centre.",reaction:"Split attention between source and reactor; captions used to land punchlines.",gameplay_bg:"Gameplay fills the frame; concise captions track the play-by-play.",podcast_clip:"Speaker name + auto-captions, often a progress bar; the key quote pulled large.",no_facecam:"Faceless visuals carry it; bold captions are the main retention device."};
+function pacingFor(d){if(d<18)return"Very fast — single idea, no setup, a cut every 1–2s. Built for instant replay.";if(d<35)return"Brisk — one hook, one payoff, minimal filler.";if(d<55)return"Moderate — room for a short setup; watch the mid-point for a retention dip.";return"Longer-form — needs a second hook around 15s to survive the natural drop-off.";}
+function titleBreakdown(t){const w=t.split(/\s+/).length,num=/\d/.test(t),q=/\?/.test(t);const b=[];b.push(`${w} words — ${w<=8?"tight enough to read in one glance":"a touch long for a Short; trimming 2–3 words would sharpen it"}`);if(num)b.push("uses a specific number, setting a concrete expectation");if(q)b.push("framed as a question, inviting the viewer to answer");b.push("front-loads the most intriguing element");return b.join("; ")+".";}
+const ALT={curiosity_gap:["Open on the result, then 'but here's what nobody saw…'","Start mid-action and rewind: 'how did we get here?'","Show the reaction before the cause","Tease the number, reveal it at the end","'You're doing this wrong and don't know it'"],shock:["Lead with the most extreme frame, no intro","Open on the aftermath, explain backwards","State the boldest claim in the first 3 words","Show the 'impossible' moment, then prove it","Cold-open on the loudest reaction"],question:["Ask the exact thing the viewer secretly wonders","Pose a 'which would you pick?' binary","Open with 'what would you do if…'","Challenge an assumption they hold","'Can you spot what's wrong here?'"],controversy:["State the unpopular opinion plainly up front","'Everyone's wrong about this'","Pit two camps against each other in line one","Call the common advice a myth","'Nobody wants to admit this, but…'"],story:["Drop into the highest-stakes moment first","'It was 3am when everything changed'","Open on the consequence, then flash back","Start with the line someone said to you","'I almost didn't post this'"],problem:["Name the mistake in the first frame","'If your X hurts, you're doing this'","Show the wrong way before the right way","'Stop doing this immediately'","Open on the symptom the viewer feels"],transformation:["Show the after, then 'here's the before'","Day 1 vs Day 30 in the first second","'I tried this for a week — results inside'","Reveal the end state, reverse-engineer it","'This is what changed everything'"]};
+function titleIdeas(label){const n=(label||"this").toLowerCase();return[`Reframe as a number list ("3 ${n} mistakes killing your views")`,`Add specificity + stakes ("the ${n} clip that hit 2M overnight")`,`Make it a direct second-person promise ("do this and your next ${n} Short blows up")`];}
+const STRUCT=["Hook (0–2s) → context (2–6s) → payoff (6–12s) → re-loop line that sends viewers back to the start.","Cold open on the climax → quick rewind → build → land the moment with full context.","Problem → agitate (why it matters) → one clear fix → soft CTA ('save this for later')."];
+function buildAnalysis(v){
+  const tier=classifyOutlierScore(v.outlier_score||0);
+  return { niche:v.niche_label, format:FORMATS[v.format_type], hook:HOOKS[v.hook_type], tier,
+    why:WHY[v.hook_type]+(v.channel_avg?` Against this channel's typical ${fmt(v.channel_avg)} Shorts views, it landed ${oscore(v.outlier_score)} — a clear sign the packaging out-resonated their usual reach.`:""),
+    titleBreakdown:titleBreakdown(v.title), subtitle:SUB[v.format_type]||SUB.no_facecam, pacing:pacingFor(v.duration_seconds),
+    remake:`Recreate the same hook structure for an adjacent ${ (v.niche_label||"") .toLowerCase()} angle, keep it under ${Math.max(20,Math.round(v.duration_seconds*0.8))}s, and lead with the payoff instead of the setup.`,
+    altHooks:ALT[v.hook_type], titleIdeas:titleIdeas(v.niche_label), structures:STRUCT,
+    summary:`${tier.label} (${oscore(v.outlier_score)}). ${HOOKS[v.hook_type]} on a ${(FORMATS[v.format_type]||"").toLowerCase()} Short. ${v.engagement_rate.toFixed(1)}% engagement, ${fmt(v.view_velocity)} views/hr.` };
+}
+
+/* ============================================================================
+   STATE + RENDER
+============================================================================ */
+const state = {
+  theme: localStorage.getItem("yt_theme")||"light",
+  view:"discover", query:"", activeNiche:null,
+  results:[], loading:false, error:null, status:"",
+  filters:{...DEFAULT_FILTERS}, sort:"outlier", layout:"grid",
+  saved: store.saved(), analyse:null, activeChannel:null, channelShorts:null, channelLoading:false,
+  drawer:false, hasSearched:false,
+};
+const $=(s,r=document)=>r.querySelector(s);
+const app=$("#app"), overlay=$("#overlay");
+
+function setStatus(s){ state.status=s; const el=$("#status"); if(el) el.textContent=s; }
+function toast(msg){ const o=$("#toast")||document.createElement("div"); o.id="toast"; o.className="toast"; o.innerHTML=I.check+" "+esc(msg); document.body.appendChild(o); clearTimeout(o._t); o._t=setTimeout(()=>o.remove(),1900); }
+function renderQuota(){ const el=$("#quota"); if(el) el.innerHTML=I.gauge+`<span>~<b>${store.quota().toLocaleString()}</b> / 10,000 units today</span>`; }
+
+const savedSet=()=>new Set(state.saved.map(s=>s.videoId));
+function saveIdea(v){
+  if(state.saved.some(s=>s.videoId===v.id)){ toast("Already in saved ideas"); return; }
+  const a=buildAnalysis(v);
+  state.saved=[{videoId:v.id, video:v, notes:"", savedAt:Date.now(), summary:a.summary},...state.saved];
+  store.setSaved(state.saved); toast("Saved to ideas"); renderNav(); if(state.view!=="discover") renderMain(); else syncCards();
+}
+function removeIdea(id){ state.saved=state.saved.filter(s=>s.videoId!==id); store.setSaved(state.saved); renderNav(); renderMain(); }
+function noteIdea(id,val){ state.saved=state.saved.map(s=>s.videoId===id?{...s,notes:val}:s); store.setSaved(state.saved); }
+
+/* ---------- component HTML ---------- */
+function avatarHTML(ch){
+  if(ch.avatar) return `<div class="avatar"><img src="${esc(ch.avatar)}" alt="" loading="lazy"></div>`;
+  const c="#"+(((ch.name||"?").charCodeAt(0)*99)%360).toString(16);
+  return `<div class="avatar" style="background:linear-gradient(135deg,var(--accent),#EC4899)">${esc((ch.name||"?").replace(/^the /i,"").charAt(0).toUpperCase())}</div>`;
+}
+function outlierBadgeHTML(score){
+  const t=classifyOutlierScore(score||0);
+  const short=t.label.replace(" performer","").replace(" outlier","");
+  return `<span class="obadge" style="background:${t.color}1f;color:${t.color}">${score==null?'<span class="spinner" style="border-top-color:'+t.color+'"></span>':((t.flame?I.flame:"")+oscore(score))}${score==null?"":'<span class="lab">'+short+"</span>"}</span>`;
+}
+function cardHTML(v){
+  const saved=savedSet().has(v.id);
+  return `<div class="card" data-id="${v.id}">
+    <div class="thumb">
+      ${v.thumbnail_url?`<img src="${esc(v.thumbnail_url)}" alt="" loading="lazy">`:""}
+      <span class="ntag">${esc(v.niche_label||"")}</span>
+      <span class="dur">${durStr(v.duration_seconds)}</span>
+      <span class="ovr" data-badge="${v.id}">${outlierBadgeHTML(v.outlier_score)}</span>
+    </div>
+    <div class="cbody">
+      <h3 class="ctitle">${esc(v.title)}</h3>
+      <div class="chan" data-chan="${v.channel.id}">${avatarHTML(v.channel)}<span class="cn">${esc(v.channel.name)}</span><span class="cs">· ${fmt(v.channel.subscriber_count)} subs</span></div>
+      <div class="metrics">
+        <span class="metric">${I.eye}${fmt(v.views)}</span>
+        <span class="metric">${I.heart}${fmt(v.likes)}</span>
+        <span class="metric">${I.comment}${fmt(v.comments)}</span>
+      </div>
+      <div class="tagline"><span class="fmt">${esc(FORMATS[v.format_type])}</span><span class="mono" style="margin-left:auto">${v.engagement_rate.toFixed(1)}% eng</span><span>· ${ago(v.published_at)}</span></div>
+      <div class="cfoot">
+        <button class="btn btn-primary" data-analyse="${v.id}">${I.sparkles} Analyse</button>
+        <button class="btn btn-ghost ${saved?"saved":""}" data-save="${v.id}" title="${saved?"Saved":"Save idea"}">${saved?I.bookmarkOn:I.bookmark}</button>
+      </div>
+    </div></div>`;
+}
+function rowHTML(v){
+  const saved=savedSet().has(v.id);
+  return `<div class="trow" data-id="${v.id}">
+    <div class="tvid">${v.thumbnail_url?`<img class="tthumb" src="${esc(v.thumbnail_url)}" loading="lazy">`:`<div class="tthumb"></div>`}
+      <div style="min-width:0"><div class="tt">${esc(v.title)}</div>
+      <div class="chan" data-chan="${v.channel.id}" style="margin-top:3px"><span class="cn" style="font-size:11.5px">${esc(v.channel.name)}</span><span class="cs">· ${fmt(v.channel.subscriber_count)}</span></div></div></div>
+    <div data-badge="${v.id}">${outlierBadgeHTML(v.outlier_score)}</div>
+    <span class="tcell">${fmt(v.views)}</span><span class="tcell">${v.engagement_rate.toFixed(1)}%</span>
+    <span class="tcell">${durStr(v.duration_seconds)}</span><span class="tcell">${ago(v.published_at)}</span>
+    <div class="tacts"><button class="tact" data-analyse="${v.id}" title="Analyse">${I.sparkles}</button>
+    <button class="tact" data-save="${v.id}" title="Save">${saved?I.bookmarkOn:I.bookmark}</button></div></div>`;
+}
+
+/* ---------- shell ---------- */
+function renderShell(){
+  app.innerHTML=`
+  <header class="topbar">
+    <div class="brand"><div class="logo">${I.flame}</div><div>OutlierLab<small>Live Shorts research</small></div></div>
+    <div class="searchbox">${I.search}<input id="search" placeholder="Search live Shorts — e.g. 'reddit stories', 'fitness'…" value="${esc(state.query)}"><button class="go" id="goBtn">Search</button></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="quota" id="quota"></div>
+    <button class="iconbtn" id="theme" title="Toggle theme">${state.theme==="light"?I.moon:I.sun}</button>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main" id="main"></main>
+  </div>`;
+  renderNav(); renderQuota(); renderSidebar("sidebar"); renderMain();
+  $("#theme").onclick=()=>{ state.theme=state.theme==="light"?"dark":"light"; localStorage.setItem("yt_theme",state.theme); document.documentElement.dataset.theme=state.theme; $("#theme").innerHTML=state.theme==="light"?I.moon:I.sun; };
+  $("#goBtn").onclick=()=>doSearch($("#search").value.trim(), null);
+  $("#search").addEventListener("keydown",e=>{ if(e.key==="Enter") doSearch(e.target.value.trim(), null); });
+}
+function renderNav(){
+  const el=$("#nav"); if(!el)return;
+  el.innerHTML=`
+    <button class="navbtn ${state.view==="discover"?"active":""}" data-view="discover">${I.search}<span>Discover</span></button>
+    <button class="navbtn ${state.view==="saved"?"active":""}" data-view="saved">${I.bookmark}<span>Saved</span>${state.saved.length?`<span class="b">${state.saved.length}</span>`:""}</button>`;
+  el.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>{ state.view=b.dataset.view; renderNav(); renderMain(); });
+}
+
+function renderSidebar(id){
+  const host=$("#"+id); if(!host)return; const f=state.filters;
+  host.innerHTML=`
+    <div class="fgroup"><h4>${I.hash} Niche (search seed)</h4><div class="chips" id="niches">
+      ${NICHES.map(n=>`<button class="chip ${state.activeNiche===n.id?"on":""}" data-niche="${n.id}">${n.label}</button>`).join("")}</div></div>
+    <div class="fgroup"><h4>${I.eye} Views</h4><div class="row2">
+      <div class="field" style="flex:1;margin:0"><label>Min</label><input class="inp mono" data-f="minViews" type="number" placeholder="0" value="${f.minViews}"></div>
+      <div class="field" style="flex:1;margin:0"><label>Max</label><input class="inp mono" data-f="maxViews" type="number" placeholder="∞" value="${f.maxViews}"></div></div></div>
+    <div class="fgroup"><h4>${I.users} Subscribers</h4><div class="row2">
+      <div class="field" style="flex:1;margin:0"><label>Min</label><input class="inp mono" data-f="minSubs" type="number" placeholder="0" value="${f.minSubs}"></div>
+      <div class="field" style="flex:1;margin:0"><label>Max</label><input class="inp mono" data-f="maxSubs" type="number" placeholder="∞" value="${f.maxSubs}"></div></div></div>
+    <div class="fgroup"><h4>${I.flame} Min outlier score</h4>
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span class="mono" id="ostxt" style="font-size:12px;color:var(--text-2)">${f.minOutlier?f.minOutlier+"×+":"Any"}</span></div>
+      <input class="range" data-f="minOutlier" type="range" min="0" max="50" step="1" value="${f.minOutlier}"></div>
+    <div class="fgroup"><h4>${I.clock} Duration</h4><select class="inp" data-f="duration">
+      <option value="any">Any length</option><option value="u15">Under 15s</option><option value="15_30">15–30s</option><option value="30_60">30–60s</option><option value="o60">Over 60s</option></select></div>
+    <div class="fgroup"><h4>${I.cal} Posted</h4><select class="inp" data-f="posted">
+      <option value="any">Any time</option><option value="24h">Last 24 hours</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option><option value="90d">Last 90 days</option></select></div>
+    <div class="fgroup"><h4>${I.bars} Min engagement</h4><select class="inp" data-f="minEngagement">
+      <option value="0">Any</option><option value="2">2%+</option><option value="4">4%+</option><option value="6">6%+</option><option value="8">8%+</option></select></div>
+    <button class="clearbtn" id="clearF">Reset all filters</button>`;
+  // set selects to current values
+  host.querySelector('[data-f="duration"]').value=f.duration;
+  host.querySelector('[data-f="posted"]').value=f.posted;
+  host.querySelector('[data-f="minEngagement"]').value=String(f.minEngagement);
+  // niche chips trigger a live search
+  host.querySelectorAll("[data-niche]").forEach(b=>b.onclick=()=>{ const n=NICHES.find(x=>x.id===b.dataset.niche); state.activeNiche=b.dataset.niche; doSearch(n.q, b.dataset.niche); });
+  // filter inputs (client-side; no refetch needed)
+  host.querySelectorAll("[data-f]").forEach(inp=>{
+    const ev=inp.type==="range"||inp.tagName==="SELECT"?"input":"input";
+    inp.addEventListener("input",()=>{
+      let val=inp.value;
+      if(inp.dataset.f==="minOutlier"||inp.dataset.f==="minEngagement") val=+val;
+      state.filters[inp.dataset.f]=val;
+      if(inp.dataset.f==="minOutlier"){ const t=$("#ostxt"); if(t)t.textContent=val?val+"×+":"Any"; }
+      if(state.view==="discover" && state.results.length) renderResults();
+    });
+  });
+  host.querySelector("#clearF").onclick=()=>{ state.filters={...DEFAULT_FILTERS}; renderSidebar(id); if(state.results.length) renderResults(); };
+}
+
+/* ---------- main views ---------- */
+function renderMain(){
+  const m=$("#main"); if(!m)return;
+  if(!store.getKey()){ m.innerHTML=setupHTML(); wireSetup(); return; }
+  if(state.view==="saved"){ m.innerHTML=savedView(); wireSaved(); return; }
+  if(state.view==="channel"){ m.innerHTML=channelView(); wireChannel(); return; }
+  // discover
+  m.innerHTML=`
+    <div class="mhead"><div><h1>Discover outliers</h1><p>Live YouTube Shorts punching above their channel's normal reach.</p></div>
+      <div class="toolbar">
+        <button class="navbtn mobileFilters" id="mFilters" style="border:1px solid var(--border)">${I.sliders} Filters</button>
+        <span class="count" id="count"></span>
+        <select class="inp" id="sortSel" style="width:auto;height:34px">${SORTS.map(s=>`<option value="${s.id}" ${state.sort===s.id?"selected":""}>Sort: ${s.label}</option>`).join("")}</select>
+        <div class="seg"><button id="lg" class="${state.layout==="grid"?"on":""}" title="Grid">${I.grid}</button><button id="ll" class="${state.layout==="list"?"on":""}" title="List">${I.list}</button></div>
+      </div></div>
+    <div id="results"></div>`;
+  $("#sortSel").onchange=e=>{ state.sort=e.target.value; if(state.results.length) renderResults(); };
+  $("#lg").onclick=()=>{ state.layout="grid"; $("#lg").classList.add("on"); $("#ll").classList.remove("on"); renderResults(); };
+  $("#ll").onclick=()=>{ state.layout="list"; $("#ll").classList.add("on"); $("#lg").classList.remove("on"); renderResults(); };
+  $("#mFilters").onclick=openDrawer;
+  renderResults();
+}
+
+function renderResults(){
+  const r=$("#results"); if(!r)return; const c=$("#count");
+  if(state.loading){ if(c)c.innerHTML=`<span class="spinner" style="display:inline-block;vertical-align:-2px"></span> <span id="status">${esc(state.status)}</span>`;
+    r.innerHTML=`<div class="grid">${Array.from({length:8}).map(()=>`<div class="skel"><div class="sk" style="aspect-ratio:16/10"></div><div style="padding:13px"><div class="sk" style="height:13px;border-radius:5px;margin-bottom:8px"></div><div class="sk" style="height:13px;width:70%;border-radius:5px;margin-bottom:14px"></div><div class="sk" style="height:30px;border-radius:8px"></div></div></div>`).join("")}</div>`;
+    return; }
+  if(state.error){ r.innerHTML=stateBlock(I.alert,"Couldn't load Shorts",state.error,`<button class="btn btn-primary" id="retry" style="width:auto;padding:0 18px;height:38px">${I.redo} Try again</button>`); $("#retry")&&($("#retry").onclick=()=>doSearch(state.query||"reddit stories", state.activeNiche)); return; }
+  if(!state.hasSearched){ r.innerHTML=stateBlock(I.search,"Search to pull live Shorts","Type a topic above or tap a niche on the left. OutlierLab fetches real Shorts, samples each channel's recent Shorts to get a true average, then ranks by outlier score.",`<div class="chips" style="justify-content:center" id="seeds">${["reddit stories","fitness","personal finance","gaming clips","motivation"].map(q=>`<button class="chip" data-seed="${q}">${q}</button>`).join("")}</div>`);
+    r.querySelectorAll("[data-seed]").forEach(b=>b.onclick=()=>doSearch(b.dataset.seed,null)); return; }
+  const list=sortShorts(filterShorts(state.results,state.filters),state.sort);
+  if(c)c.innerHTML=`<b>${list.length}</b> Shorts`;
+  if(!list.length){ r.innerHTML=stateBlock(I.inbox,"No Shorts match these filters","Widen the outlier score, loosen the date range, or clear a filter.",`<button class="clearbtn" id="rf" style="width:auto;padding:0 18px">Reset filters</button>`); $("#rf")&&($("#rf").onclick=()=>{state.filters={...DEFAULT_FILTERS};renderSidebar("sidebar");renderResults();}); return; }
+  if(state.layout==="grid"){ r.innerHTML=`<div class="grid">${list.map(cardHTML).join("")}</div>`; }
+  else { r.innerHTML=`<div class="tablewrap"><div class="thead"><span>Short</span><span>Outlier</span><span>Views</span><span>Eng.</span><span>Length</span><span>Posted</span><span style="text-align:right">Actions</span></div>${list.map(rowHTML).join("")}</div>`; }
+}
+function syncCards(){ if(state.view==="discover"&&!state.loading) renderResults(); }
+
+function stateBlock(icon,h,p,extra){ return `<div class="state"><div class="sic">${icon}</div><h3>${esc(h)}</h3><p>${esc(p)}</p>${extra||""}</div>`; }
+
+/* saved */
+function savedView(){
+  if(!state.saved.length) return `<div class="mhead"><div><h1>Saved ideas</h1><p>Your swipe file of Shorts worth modelling.</p></div></div>`+stateBlock(I.bookmark,"No saved ideas yet","When you find a Short worth modelling, hit Save. It lands here with its outlier score, your notes and the analysis summary.",`<button class="btn btn-primary" id="toDisc" style="width:auto;padding:0 18px;height:38px">${I.search} Go to Discover</button>`);
+  return `<div class="mhead"><div><h1>Saved ideas</h1><p>Your swipe file of Shorts worth modelling.</p></div><div class="toolbar"><span class="count"><b>${state.saved.length}</b> saved</span></div></div>
+  <div class="savedlist">${state.saved.map(s=>{const v=s.video;return `<div class="scard" data-id="${v.id}">
+    ${v.thumbnail_url?`<img class="sth" src="${esc(v.thumbnail_url)}">`:`<div class="sth" style="background:var(--bg-2)"></div>`}
+    <div class="sm"><div style="display:flex;gap:10px;align-items:flex-start"><h3 style="flex:1">${esc(v.title)}</h3><button class="tact" data-remove="${v.id}" title="Remove">${I.trash}</button></div>
+    <div class="meta">${outlierBadgeHTML(v.outlier_score)}<button class="chip" data-chan="${v.channel.id}" style="padding:3px 8px">${esc(v.channel.name)}</button><span>${esc(v.niche_label||"")}</span><span>· saved ${ago(s.savedAt)}</span><a class="lnk" href="${esc(v.video_url)}" target="_blank" rel="noreferrer">${I.ext} ${esc(v.youtube_video_id)}</a></div>
+    ${s.summary?`<div class="summary">${esc(s.summary)}</div>`:""}
+    <textarea data-note="${v.id}" placeholder="Your notes — what to steal, angle to try…">${esc(s.notes)}</textarea>
+    <div><button class="btn btn-primary" data-analyse="${v.id}" style="width:auto;padding:0 14px;height:32px;font-size:12px">${I.sparkles} Re-open analysis</button></div></div></div>`;}).join("")}</div>`;
+}
+function wireSaved(){
+  const m=$("#main");
+  m.querySelector("#toDisc")&&(m.querySelector("#toDisc").onclick=()=>{state.view="discover";renderNav();renderMain();});
+  m.querySelectorAll("[data-remove]").forEach(b=>b.onclick=()=>removeIdea(b.dataset.remove));
+  m.querySelectorAll("[data-note]").forEach(t=>t.addEventListener("input",()=>noteIdea(t.dataset.note,t.value)));
+}
+
+/* channel */
+function channelView(){
+  const ch=state.activeChannel; if(!ch) return "";
+  const cs=state.channelShorts;
+  const head=`<button class="backbtn" id="back">${I.back} Back</button>
+   <div class="chero"><div class="top">${ch.avatar?`<img class="big" src="${esc(ch.avatar)}">`:`<div class="big" style="display:grid;place-items:center;color:#fff;font-size:26px;font-weight:800;background:linear-gradient(135deg,var(--accent),#EC4899)">${esc(ch.name.charAt(0))}</div>`}
+     <div><h1>${esc(ch.name)}</h1><div class="mono" style="color:var(--text-3);font-size:12.5px;margin-top:4px">${esc(ch.youtube_channel_id)}</div></div></div>`;
+  if(state.channelLoading||!cs) return head+`</div>`+`<div class="state"><div class="spinner"></div><p style="margin-top:14px">Loading this channel's Shorts…</p></div>`;
+  const sorted=[...cs].sort((a,b)=>(b.outlier_score||0)-(a.outlier_score||0));
+  const best=[...cs].sort((a,b)=>b.views-a.views).slice(0,4);
+  const outs=sorted.filter(v=>(v.outlier_score||0)>=5).slice(0,4);
+  const fmtCount={}; cs.forEach(v=>fmtCount[v.format_type]=(fmtCount[v.format_type]||0)+1);
+  const topFmt=Object.entries(fmtCount).sort((a,b)=>b[1]-a[1])[0]?.[0];
+  const days=cs.map(v=>v.published_at).sort((a,b)=>a-b);
+  const span=days.length>1?(days[days.length-1]-days[0])/864e5:30;
+  const perWk=span>0?(cs.length/span)*7:cs.length;
+  const stats=`<div class="statgrid">
+    <div class="stat"><div class="sl">${I.users} Subscribers</div><div class="sv">${fmt(ch.subscriber_count)}</div></div>
+    <div class="stat"><div class="sl">${I.eye} Avg Shorts views</div><div class="sv">${fmt(ch.average_shorts_views)}</div></div>
+    <div class="stat"><div class="sl">${I.cal} Upload freq</div><div class="sv">${perWk>=1?perWk.toFixed(1)+"/wk":(perWk*4).toFixed(1)+"/mo"}</div></div>
+    <div class="stat"><div class="sl">${I.hash} Top format</div><div class="sv" style="font-size:15px">${esc(FORMATS[topFmt]||"—")}</div></div>
+    <div class="stat"><div class="sl">${I.flame} Biggest outlier</div><div class="sv" style="color:${classifyOutlierScore(sorted[0]?.outlier_score||0).color}">${oscore(sorted[0]?.outlier_score||0)}</div></div>
+    <div class="stat"><div class="sl">${I.bars} Shorts loaded</div><div class="sv">${cs.length}</div></div></div></div>`;
+  const grid=(arr)=>`<div class="grid">${arr.map(cardHTML).join("")}</div>`;
+  return head+stats
+    +(outs.length?`<div class="subhead">${I.flame} Biggest outliers</div>`+grid(outs):"")
+    +`<div class="subhead">${I.trend} Best performing Shorts</div>`+grid(best);
+}
+function wireChannel(){ const b=$("#back"); if(b)b.onclick=()=>{state.view="discover";renderNav();renderMain();}; }
+
+async function openChannel(ch){
+  state.activeChannel=ch; state.view="channel"; state.channelShorts=null; state.channelLoading=true;
+  renderNav(); renderMain(); window.scrollTo(0,0);
+  try{ state.channelShorts=await fetchChannelShorts(ch); }
+  catch(e){ state.channelShorts=[]; toast("Couldn't load channel: "+(e.reason||e.message)); }
+  state.channelLoading=false; if(state.view==="channel") renderMain();
+}
+
+/* setup / key screen */
+function setupHTML(){
+  return `<div class="setup"><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div class="logo" style="width:38px;height:38px;font-size:19px">${I.key}</div><h2 style="margin:0">Connect your YouTube API key</h2></div>
+  <p>OutlierLab pulls <b>real</b> Shorts from the YouTube Data API v3. It's free within Google's daily quota. You only need to do this once — the key is stored in your browser.</p>
+  <ol>
+    <li>Open the <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer">Google Cloud Console</a> and create a project.</li>
+    <li>Go to <b>APIs &amp; Services → Library</b>, search <b>YouTube Data API v3</b>, click <b>Enable</b>.</li>
+    <li>Go to <b>Credentials → Create credentials → API key</b>, then copy it.</li>
+    <li>(Recommended) Edit the key → restrict it to <b>YouTube Data API v3</b>, and add an HTTP-referrer restriction for the domain you'll host this on.</li>
+  </ol>
+  <div class="keyrow"><input class="inp mono" id="keyInput" type="password" placeholder="Paste your API key (AIza…)"><button class="btn btn-primary" id="saveKey">Connect</button></div>
+  <div class="warn">${I.alert}<span>This key lives only in your browser's local storage and is sent straight to Google's API. Because a static site exposes the key to the browser, restrict it (above) so it can't be reused elsewhere. For a fully private key, deploy the Next.js server version instead.</span></div></div>`;
+}
+function wireSetup(){
+  const m=$("#main"); const inp=m.querySelector("#keyInput");
+  m.querySelector("#saveKey").onclick=()=>{ const k=inp.value.trim(); if(!k){inp.focus();return;} store.setKey(k); toast("Key connected"); renderQuota(); renderMain(); };
+  inp.addEventListener("keydown",e=>{ if(e.key==="Enter") m.querySelector("#saveKey").click(); });
+}
+
+/* ---------- search driver ---------- */
+async function doSearch(query, niche){
+  if(!store.getKey()){ renderMain(); return; }
+  query=(query||"").trim(); if(!query){ return; }
+  state.query=query; state.activeNiche=niche; state.hasSearched=true; state.loading=true; state.error=null; state.view="discover";
+  const si=$("#search"); if(si) si.value=query;
+  renderNav(); renderSidebar("sidebar"); renderMain();
+  try{
+    const results=await searchShorts(query, state.sort, state.filters.posted);
+    state.results=results; state.loading=false;
+    if(state.view==="discover") renderMain();
+  }catch(e){
+    state.loading=false;
+    state.error = e.reason==="quotaExceeded" ? "Your daily API quota (10,000 units) is used up. It resets at midnight Pacific. A search costs 100 units, so cached channels keep later searches cheap."
+      : e.reason==="keyInvalid"||e.reason==="badRequest" ? "That API key looks invalid or isn't enabled for YouTube Data API v3. Check the key and try again."
+      : (e.message||"Something went wrong calling the API.");
+    if(state.view==="discover") renderMain();
+  }
+}
+
+/* ---------- overlay: analyse modal + drawer ---------- */
+function getVideo(id){ return state.results.find(v=>v.id===id) || (state.channelShorts||[]).find(v=>v.id===id) || (state.saved.find(s=>s.videoId===id)||{}).video; }
+function openAnalyse(id){
+  const v=getVideo(id); if(!v)return; const a=buildAnalysis(v); const saved=savedSet().has(v.id);
+  overlay.innerHTML=`<div class="scrim" id="scrim"><div class="modal">
+    <div class="mtop">${v.thumbnail_url?`<img src="${esc(v.thumbnail_url)}">`:`<div style="width:104px;height:62px;border-radius:11px;background:var(--bg-2)"></div>`}
+      <div style="min-width:0"><h2>${esc(v.title)}</h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${outlierBadgeHTML(v.outlier_score)}<span class="mono" style="color:var(--text-3);font-size:11.5px">${esc(v.channel.name)} · ${fmt(v.views)} views · ${v.engagement_rate.toFixed(1)}% eng</span></div></div>
+      <button class="mclose" id="mclose">${I.x}</button></div>
+    <div class="mbody">
+      <div class="aihdr">${I.sparkles} Breakdown</div>
+      <div class="detgrid">
+        <div class="det"><div class="k">Niche</div><div class="v">${esc(a.niche||"—")}</div></div>
+        <div class="det"><div class="k">Format <span style="opacity:.6">(est.)</span></div><div class="v">${esc(a.format)}</div></div>
+        <div class="det"><div class="k">Hook <span style="opacity:.6">(est.)</span></div><div class="v">${esc(a.hook)}</div></div>
+        <div class="det"><div class="k">Performance</div><div class="v" style="color:${a.tier.color}">${esc(a.tier.label)}</div></div></div>
+      <div class="sec"><h3>${I.trend} Why it likely performed</h3><p>${esc(a.why)}</p></div>
+      <div class="sec"><h3>${I.hash} Title breakdown</h3><p>${esc(a.titleBreakdown)}</p></div>
+      <div class="sec"><h3>${I.grid} Subtitle / caption style</h3><p>${esc(a.subtitle)}</p></div>
+      <div class="sec"><h3>${I.gauge} Pacing notes</h3><p>${esc(a.pacing)}</p></div>
+      <div class="sec"><h3>${I.redo} Remake idea</h3><p>${esc(a.remake)}</p></div>
+      <div class="sec"><h3>${I.bolt} 5 alternative hooks</h3><ul class="ideas">${a.altHooks.map((h,i)=>`<li><span class="n">${i+1}</span>${esc(h)}</li>`).join("")}</ul></div>
+      <div class="sec"><h3>${I.hash} 3 title ideas</h3><ul class="ideas">${a.titleIdeas.map((t,i)=>`<li><span class="n">${String.fromCharCode(65+i)}</span>${esc(t)}</li>`).join("")}</ul></div>
+      <div class="sec"><h3>${I.bars} 3 video structures</h3><ul class="ideas">${a.structures.map((s,i)=>`<li><span class="n">${i+1}</span>${esc(s)}</li>`).join("")}</ul></div>
+      <div style="display:flex;gap:10px"><button class="btn btn-primary" id="mSave" style="height:40px">${saved?I.bookmarkOn+" Saved":I.bookmark+" Save this idea"}</button>
+        <a class="btn btn-ghost" style="height:40px;width:auto;padding:0 16px;text-decoration:none" href="${esc(v.video_url)}" target="_blank" rel="noreferrer">${I.ext} Open Short</a></div>
+      <div class="note">${I.alert} Format and hook are estimated from the title/description; everything else is computed from the live view, like and comment counts. Connect a model to the analysis layer for transcript-level depth.</div>
+    </div></div></div>`;
+  $("#scrim").onclick=e=>{ if(e.target.id==="scrim") closeOverlay(); };
+  $("#mclose").onclick=closeOverlay;
+  $("#mSave").onclick=()=>{ saveIdea(v); closeOverlay(); };
+}
+function closeOverlay(){ overlay.innerHTML=""; }
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ closeOverlay(); closeDrawer(); } });
+
+function openDrawer(){
+  overlay.insertAdjacentHTML("beforeend",`<div class="drawer" id="drawer"><div class="bd" id="drawerBd"></div><div class="pane"><div style="display:flex;align-items:center;margin-bottom:16px"><h4 style="margin:0;font-size:14px;font-weight:700">Filters</h4><button class="tact" id="drawerClose" style="margin-left:auto">${I.x}</button></div><div id="drawerFilters"></div></div></div>`);
+  renderSidebar("drawerFilters");
+  $("#drawerBd").onclick=closeDrawer; $("#drawerClose").onclick=closeDrawer;
+}
+function closeDrawer(){ const d=$("#drawer"); if(d)d.remove(); }
+
+/* ---------- global event delegation for cards ---------- */
+document.addEventListener("click",e=>{
+  const a=e.target.closest("[data-analyse]"); if(a){ openAnalyse(a.dataset.analyse); return; }
+  const s=e.target.closest("[data-save]"); if(s){ const v=getVideo(s.dataset.save); if(v) saveIdea(v); return; }
+  const ch=e.target.closest("[data-chan]"); if(ch){ const v=getVideo(ch.closest("[data-id]")?.dataset.id) ; const channel = v?v.channel : (state.results.find(x=>x.channel.id===ch.dataset.chan)||{}).channel; if(channel) openChannel(channel); return; }
+});
+
+/* ---------- boot ---------- */
+document.documentElement.dataset.theme=state.theme;
+renderShell();
+</script>
+</body>
+</html>
